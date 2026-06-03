@@ -115,4 +115,6 @@ pub use cell::{CellSliceExt, MelinoeCell, MelinoeMut, MelinoeRef};
 #[doc(inline)]
 pub use region::WriterShard;
 #[doc(inline)]
-pub use token::{brand_scope, ExclusiveToken, ReadPermit, SharedReadToken, WritePermit};
+pub use token::{
+    brand_scope, ExclusiveToken, InvariantLifetime, ReadPermit, SharedReadToken, WritePermit,
+};

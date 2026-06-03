@@ -18,7 +18,7 @@ use super::ExclusiveToken;
 /// `fn(&'brand ()) -> &'brand ()` places `'brand` in both argument and return
 /// position, forcing invariance, while function pointers are always `Send` and
 /// `Sync`, so the marker never perturbs the auto-trait inference of its host.
-pub(crate) type InvariantLifetime<'brand> = PhantomData<fn(&'brand ()) -> &'brand ()>;
+pub type InvariantLifetime<'brand> = PhantomData<fn(&'brand ()) -> &'brand ()>;
 
 /// Open a fresh branding scope and hand its unique [`ExclusiveToken`] to `f`.
 ///

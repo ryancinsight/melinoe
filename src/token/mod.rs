@@ -19,7 +19,7 @@ pub(crate) mod capability;
 mod exclusive;
 mod shared;
 
-pub(crate) use brand::InvariantLifetime;
+pub use brand::InvariantLifetime;
 
 pub use brand::brand_scope;
 pub use capability::{ReadPermit, WritePermit};
