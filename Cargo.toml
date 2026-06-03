@@ -1,0 +1,50 @@
+[package]
+name = "melinoe"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.65"
+authors = ["Ryan Clanton <ryanclanton@outlook.com>"]
+description = "Zero-sized, branded, multi-token phantom capabilities for compile-time data-access and thread-synchronization proofs (a generalized evolution of GhostCell) for the Mnemosyne memory ecosystem."
+documentation = "https://docs.rs/melinoe"
+repository = "https://github.com/ryancinsight/melinoe"
+license = "MIT OR Apache-2.0"
+keywords = ["ghostcell", "phantom", "capability", "no_std", "concurrency"]
+categories = ["no-std", "concurrency", "rust-patterns", "memory-management"]
+readme = "README.md"
+
+[features]
+default = ["std"]
+# `alloc` pulls in the `alloc` crate so branded cells over heap-owning payloads
+# (`Box`, `Vec`, ...) can be exercised in examples/tests without `std`.
+alloc = []
+# `std` is a superset of `alloc`; it additionally enables the `std`-gated
+# cross-thread handoff demonstrations that rely on `std::thread::scope`.
+std = ["alloc"]
+# `nightly` enables `doc_cfg` for precise feature-gated documentation (requires
+# a nightly toolchain) and reserves the surface for future
+# `generic_const_exprs`-based capability sets.
+nightly = []
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "access"
+harness = false
+required-features = ["std"]
+
+[[bench]]
+name = "mnemosyne"
+harness = false
+required-features = ["std"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints.rust]
+missing_docs = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = "warn"
