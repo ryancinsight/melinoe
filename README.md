@@ -70,18 +70,34 @@ exist and where they may travel.
 ### Multi-token composition
 
 Distinct brands are non-unifiable, so they compose into several independent
-exclusion domains:
+exclusion domains. melinoe ships one primitive per axis and composes them — no
+arity-specific `brand_scopeN`/`CellN` variants:
 
-* **Multi-XOR** — `brand_scope2` / `brand_scope3` open several brands at once;
-  hold a `&mut` into each disjoint region simultaneously, proven disjoint at
-  compile time (no runtime checks).
-* **AND-cells** — `MelinoeCell2<'a, 'b, T>` unlocks only when you present a
-  capability for *both* brands: a compile-time multi-lock-held invariant.
-* **Ambient state** — `reentrant::ReentrancyCell` brands thread-lifetime exclusive
-  state (e.g. an allocator's per-thread slot): one boundary check yields a
-  fresh-brand token, re-entry is refused rather than aliased, and every access
-  inside is compile-time-proven. This is the sound bridge for state that outlives
-  any single `brand_scope` closure.
+* **Multi-XOR** — *nest* `brand_scope`. Each nested scope is a fresh, distinct
+  brand, so a `&mut` into one region and a `&mut` into another are held
+  simultaneously, proven disjoint at compile time (no runtime checks).
+  Composition yields any arity for free:
+
+  ```rust
+  use melinoe::{brand_scope, MelinoeCell};
+  brand_scope(|mut ta| brand_scope(|mut tb| {
+      let a = MelinoeCell::new(10_u64);
+      let b = MelinoeCell::new(32_u64);
+      let mut ma = a.borrow_mut(&mut ta);
+      let mb = b.borrow_mut(&mut tb);   // distinct brand ⇒ second live &mut is legal
+      *ma += *mb;
+      assert_eq!(*a.borrow(&ta), 42);
+  }));
+  ```
+
+* **Disjoint concurrent writes** — `region::WriterShard` splits one brand into
+  disjoint sub-regions for parallel writers; `SyncRegionToken` moves a whole
+  brand's write capability across threads.
+* **Ambient state** — `reentrant::GuardedCell` / `reentrant::ReentrancyCell` brand
+  thread-lifetime exclusive state (e.g. an allocator's per-thread slot): one
+  boundary check yields a borrow-checked `&mut T` (or a fresh-brand token),
+  re-entry is refused rather than aliased, panic-safe by construction. This is the
+  sound bridge for state that outlives any single `brand_scope` closure.
 
 ## Quick start
 

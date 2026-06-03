@@ -34,21 +34,21 @@
 //!
 //! ## Multi-token composition
 //!
-//! Brands compose. Because distinct brands are non-unifiable invariant
-//! lifetimes, melinoe expresses several independent exclusion domains at once
-//! (*multi-XOR*), capability transfer, and joint requirements:
+//! Brands compose; melinoe exposes one primitive per axis and composes them
+//! rather than shipping arity-specific variants:
 //!
-//! * [`brand_scope2`] / [`brand_scope3`] — open several brands together and hold
-//!   a `&mut` into each disjoint region *simultaneously*, disjointness proven at
-//!   compile time.
-//! * [`MelinoeCell2`] — a cell unlocked only by presenting a capability for
-//!   *both* of two brands: a compile-time *multi-lock-held* invariant.
+//! * **Multi-XOR** — *nest* [`brand_scope`] for several independent exclusion
+//!   domains at once. Each nested scope is a fresh, non-unifiable brand, so a
+//!   `&mut` into one region and a `&mut` into another are held simultaneously,
+//!   disjointness proven at compile time. Composition gives any arity for free —
+//!   no `brand_scopeN`.
 //! * [`region::WriterShard`] — split one brand into disjoint sub-regions for
 //!   concurrent writers; [`SyncRegionToken`](sync::SyncRegionToken) moves a whole
 //!   brand's write capability across threads.
-//! * [`reentrant::ReentrancyCell`] — gate *ambient* (thread-lifetime) exclusive
-//!   state: one runtime check at the boundary yields a fresh-brand token whose
-//!   access is then compile-time-proven, with re-entry refused rather than aliased.
+//! * [`reentrant::GuardedCell`] / [`reentrant::ReentrancyCell`] — gate *ambient*
+//!   (thread-lifetime) exclusive state: one runtime check at the boundary yields
+//!   a borrow-checked `&mut T` (or a fresh-brand token), with re-entry refused
+//!   rather than aliased.
 //!
 //! ## Quick start
 //!
@@ -130,13 +130,12 @@ mod readme_doctests {
 mod static_assertions;
 
 #[doc(inline)]
-pub use cell::{CellSliceExt, MelinoeCell, MelinoeCell2, MelinoeMut, MelinoeRef};
+pub use cell::{CellSliceExt, MelinoeCell, MelinoeMut, MelinoeRef};
 #[doc(inline)]
 pub use reentrant::{GuardedCell, ReentrancyCell};
 #[doc(inline)]
 pub use region::WriterShard;
 #[doc(inline)]
 pub use token::{
-    brand_scope, brand_scope2, brand_scope3, ExclusiveToken, InvariantLifetime, ReadPermit,
-    SharedReadToken, WritePermit,
+    brand_scope, ExclusiveToken, InvariantLifetime, ReadPermit, SharedReadToken, WritePermit,
 };

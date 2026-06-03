@@ -10,7 +10,7 @@ use core::mem::{align_of, size_of};
 use crate::region::WriterShard;
 use crate::sync::{SyncRegionToken, ThreadLocalToken};
 use crate::token::{ExclusiveToken, SharedReadToken};
-use crate::{MelinoeCell, MelinoeCell2, MelinoeMut, MelinoeRef};
+use crate::{MelinoeCell, MelinoeMut, MelinoeRef};
 
 const _: () = {
     // ── Every capability token is zero-sized: carrying a permit through an
@@ -26,10 +26,6 @@ const _: () = {
     assert!(align_of::<MelinoeCell<'static, u64>>() == align_of::<u64>());
     assert!(size_of::<MelinoeCell<'static, [u8; 37]>>() == 37);
     assert!(size_of::<MelinoeCell<'static, ()>>() == 0);
-
-    // ── A two-brand cell is likewise exactly its payload (both markers ZST). ──
-    assert!(size_of::<MelinoeCell2<'static, 'static, u64>>() == size_of::<u64>());
-    assert!(align_of::<MelinoeCell2<'static, 'static, u64>>() == align_of::<u64>());
 
     // ── Borrow guards are ABI-identical to the bare reference they wrap, and
     //    inherit its null-pointer niche (so `Option<Guard>` stays pointer-sized). ──

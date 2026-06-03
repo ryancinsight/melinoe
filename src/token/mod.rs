@@ -21,7 +21,7 @@ mod shared;
 
 pub use brand::InvariantLifetime;
 
-pub use brand::{brand_scope, brand_scope2, brand_scope3};
+pub use brand::brand_scope;
 pub use capability::{ReadPermit, WritePermit};
 pub use exclusive::ExclusiveToken;
 pub use shared::SharedReadToken;
