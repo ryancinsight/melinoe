@@ -52,21 +52,37 @@ carries no side effect. That transparency to optimization *is* the zero-cost
 property — see the assembly in [`examples/codegen.rs`](examples/codegen.rs),
 where one access is a single `mov`.
 
-### Concurrent reads, 4 threads × 4096 reads (`concurrent_reads_4threads`)
+### Concurrent read scaling (`cargo bench --bench concurrent_reads`)
 
-| Mechanism        | Wall time / sample | Throughput |
-|------------------|--------------------|-----------:|
-| **Melinoe** (`SharedReadToken`) | 264 µs  | ~62 Melem/s |
-| `AtomicU64` (Relaxed) | 249 µs        | ~66 Melem/s |
-| `Mutex`          | 755 µs             | ~22 Melem/s |
-| `RwLock` (read)  | 834 µs             | ~20 Melem/s |
+Each thread sweeps a shared 1024×`u64` buffer `PASSES` times; spawn is amortised
+(many sweeps per spawn) and each sweep re-reads behind `black_box` so the loads
+are real. Reported as **throughput, Gelem/s** across thread counts (24-core host).
 
-Melinoe shared reads match a relaxed atomic load and run **~3× the throughput**
-of `Mutex`/`RwLock`, whose lock words bounce between cores under read traffic.
-Caveat: each Criterion sample re-spawns the four threads, so this figure is
-dominated by `thread::scope` spawn/join overhead; the lock-based rows carry the
-contention penalty *on top* of that shared baseline. The single-threaded rows
-above are the cleaner per-access evidence.
+> An earlier `concurrent_reads_4threads` group spawned threads *inside* every
+> sample and did only a few reads — it measured `thread::scope` spawn overhead,
+> not read throughput, and wrongly showed Melinoe merely ≈ atomics. That group
+> was removed; this is the corrected measurement.
+
+| threads | **melinoe** | `RwLock` read | `Mutex` | `AtomicU64` (per-elem) |
+|--------:|------------:|--------------:|--------:|-----------------------:|
+| 1  | 13.3 | 12.0 | 12.2 | 7.6  |
+| 2  | 24.3 | 10.3 | 9.3  | 15.0 |
+| 4  | 45.3 | 10.4 | 8.0  | 29.3 |
+| 8  | 74.0 | 11.6 | 6.9  | 46.6 |
+| 16 | **103.5** | 9.8 | 6.7 | 72.9 |
+
+* **Melinoe scales near-linearly** (≈7.8× from 1→16 threads): a branded read is a
+  plain load with *zero shared mutable state*, so cores never contend.
+* **`RwLock` does not scale** — it is flat-to-degrading (~10 Gelem/s at every
+  thread count) because `read()` does an atomic RMW on the shared reader count,
+  whose cache line ping-pongs between cores. At 16 threads Melinoe is **~10.5×**
+  `RwLock` and **~15×** `Mutex`.
+* **Atomics scale** (lock-free, read-only) but trail Melinoe by ~40% because
+  per-element atomic loads do not autovectorize.
+* `melinoe_per_cell` ≈ `melinoe_slice`: the per-cell `borrow` loop already
+  autovectorizes (~4 `u64`/cycle single-thread), so the slice view is an
+  ergonomic convenience here, not a speedup. The read path is already optimal —
+  this benchmark is the evidence, not a code change.
 
 ### Concurrent disjoint writes, compute-bound, 4 threads × ~1M elements (`partitioned_compute_1m`)
 

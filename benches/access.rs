@@ -139,115 +139,9 @@ fn bench_read(c: &mut Criterion) {
     g.finish();
 }
 
-fn bench_concurrent_reads(c: &mut Criterion) {
-    const THREADS: usize = 4;
-    const PER: u64 = 4096;
-
-    let mut g = c.benchmark_group("concurrent_reads_4threads");
-    g.throughput(Throughput::Elements(THREADS as u64 * PER));
-
-    g.bench_function("mutex", |b| {
-        let m = Mutex::new(black_box(7u64));
-        b.iter(|| {
-            thread::scope(|s| {
-                let hs: Vec<_> = (0..THREADS)
-                    .map(|_| {
-                        s.spawn(|| {
-                            let mut acc = 0u64;
-                            for _ in 0..PER {
-                                acc = acc.wrapping_add(*m.lock().unwrap());
-                            }
-                            acc
-                        })
-                    })
-                    .collect();
-                black_box(
-                    hs.into_iter()
-                        .map(|h| h.join().unwrap())
-                        .fold(0u64, u64::wrapping_add),
-                )
-            })
-        });
-    });
-
-    g.bench_function("rwlock", |b| {
-        let l = RwLock::new(black_box(7u64));
-        b.iter(|| {
-            thread::scope(|s| {
-                let hs: Vec<_> = (0..THREADS)
-                    .map(|_| {
-                        s.spawn(|| {
-                            let mut acc = 0u64;
-                            for _ in 0..PER {
-                                acc = acc.wrapping_add(*l.read().unwrap());
-                            }
-                            acc
-                        })
-                    })
-                    .collect();
-                black_box(
-                    hs.into_iter()
-                        .map(|h| h.join().unwrap())
-                        .fold(0u64, u64::wrapping_add),
-                )
-            })
-        });
-    });
-
-    g.bench_function("atomic_relaxed", |b| {
-        let a = AtomicU64::new(black_box(7));
-        b.iter(|| {
-            thread::scope(|s| {
-                let hs: Vec<_> = (0..THREADS)
-                    .map(|_| {
-                        s.spawn(|| {
-                            let mut acc = 0u64;
-                            for _ in 0..PER {
-                                acc = acc.wrapping_add(a.load(Ordering::Relaxed));
-                            }
-                            acc
-                        })
-                    })
-                    .collect();
-                black_box(
-                    hs.into_iter()
-                        .map(|h| h.join().unwrap())
-                        .fold(0u64, u64::wrapping_add),
-                )
-            })
-        });
-    });
-
-    g.bench_function("melinoe_shared", |b| {
-        brand_scope(|token| {
-            let cell = MelinoeCell::new(black_box(7u64));
-            let snap = token.share();
-            let cell = &cell;
-            b.iter(|| {
-                thread::scope(|s| {
-                    let hs: Vec<_> = (0..THREADS)
-                        .map(|_| {
-                            s.spawn(move || {
-                                let mut acc = 0u64;
-                                for _ in 0..PER {
-                                    acc = acc.wrapping_add(*cell.borrow(snap));
-                                }
-                                acc
-                            })
-                        })
-                        .collect();
-                    black_box(
-                        hs.into_iter()
-                            .map(|h| h.join().unwrap())
-                            .fold(0u64, u64::wrapping_add),
-                    )
-                })
-            });
-        });
-    });
-
-    g.finish();
-}
+// Concurrent read throughput is measured rigorously in the dedicated
+// `concurrent_reads` benchmark (thread-scaling, spawn amortised). A naive
+// spawn-per-sample version here would measure thread-spawn overhead, not reads.
 
 /// A deliberately non-trivial per-element kernel so the partitioned benchmark is
 /// compute-bound (and thus actually parallelizable) rather than dominated by
@@ -345,7 +239,6 @@ criterion_group!(
     benches,
     bench_increment,
     bench_read,
-    bench_concurrent_reads,
     bench_partitioned_writes
 );
 criterion_main!(benches);

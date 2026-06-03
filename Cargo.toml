@@ -38,6 +38,11 @@ name = "mnemosyne"
 harness = false
 required-features = ["std"]
 
+[[bench]]
+name = "concurrent_reads"
+harness = false
+required-features = ["std"]
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

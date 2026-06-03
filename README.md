@@ -144,8 +144,11 @@ work pinned by [`tests/differential.rs`](tests/differential.rs)):
 | `RwLock` (write) | ~8.6 ns | ~40× |
 | `Mutex` | ~11.6 ns | ~54× |
 
-For concurrent reads, Melinoe's `SharedReadToken` matches a relaxed atomic load
-and runs ~3× the throughput of `Mutex`/`RwLock`.
+For concurrent reads, Melinoe's `SharedReadToken` scales **near-linearly** with
+cores (a branded read is a plain load with zero shared mutable state), reaching
+**~10× `RwLock`** and **~15× `Mutex`** at 16 threads — where `RwLock` stops
+scaling entirely, its reader-count atomic bouncing between cores. (Full
+thread-scaling table in [`BENCHMARKS.md`](BENCHMARKS.md).)
 
 For **concurrent writes**, disjoint [`WriterShard`](src/region/mod.rs) partitions
 (below) scale near-linearly using plain stores, matching lock-free atomics while
