@@ -53,3 +53,8 @@ unsafe_op_in_unsafe_fn = "deny"
 
 [lints.clippy]
 all = "warn"
+
+[[bench]]
+name = "false_sharing"
+harness = false
+required-features = ["std"]

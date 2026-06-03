@@ -142,6 +142,35 @@ lives at the ownership boundary by design: inside the zero-cost access core a
 branded borrow is *always* zero-copy, so a `Cow` there would be a degenerate
 always-`Borrowed`.
 
+## Disjoint per-thread counters: false sharing & memory (`cargo bench --bench false_sharing`)
+
+Pattern: 8 threads each accumulate into their *own* counter, results read after
+the join (per-thread allocator statistics). The decisive property is whether the
+write can be register-promoted.
+
+| Variant | Throughput | Memory / counter |
+|---------|-----------:|-----------------:|
+| `raw_split_mut` (`&mut u64`) | 9.2 Gelem/s | 8 B |
+| **`melinoe_shards`** (`MelinoeCell<u64>`) | **10.1 Gelem/s** | **8 B** |
+| `atomic_adjacent` (`AtomicU64`) | 0.12 Gelem/s | 8 B |
+| `atomic_padded` (`#[repr(align(128))]`) | 1.06 Gelem/s | 128 B |
+
+* **Melinoe matches raw `split_at_mut`** — the disjoint shard is zero-cost.
+* It is **~83× faster than adjacent atomics** and **~9.5× faster than padded
+  atomics**, at **8 B/counter** (no padding). Because the type system proves
+  single-writer, the compiler keeps the counter in a register and writes back
+  once, so the shared cache line is never touched mid-loop — no false sharing,
+  no memory RMW.
+* An `AtomicU64` cannot be register-promoted: every `fetch_add` is a real memory
+  RMW, so adjacent counters bounce their shared line (false sharing). Recovering
+  throughput needs cache-line padding — **16× the memory** — and still trails
+  Melinoe.
+
+The takeaway is a *non-change*: Melinoe needs no cache-line padding for disjoint
+per-thread state, so the dense (8 B) layout is also the fast one. Adding a padded
+cell type would be the wrong fix — it would trade away the memory efficiency the
+single-writer proof already buys for free.
+
 ## Interpretation
 
 * Melinoe access is a bare load/store: zero synchronization instructions, and
