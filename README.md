@@ -67,6 +67,22 @@ exist and where they may travel.
 [`ReadPermit`]: https://docs.rs/melinoe/latest/melinoe/trait.ReadPermit.html
 [`WritePermit`]: https://docs.rs/melinoe/latest/melinoe/trait.WritePermit.html
 
+### Multi-token composition
+
+Distinct brands are non-unifiable, so they compose into several independent
+exclusion domains:
+
+* **Multi-XOR** — `brand_scope2` / `brand_scope3` open several brands at once;
+  hold a `&mut` into each disjoint region simultaneously, proven disjoint at
+  compile time (no runtime checks).
+* **AND-cells** — `MelinoeCell2<'a, 'b, T>` unlocks only when you present a
+  capability for *both* brands: a compile-time multi-lock-held invariant.
+* **Ambient state** — `reentrant::ReentrancyCell` brands thread-lifetime exclusive
+  state (e.g. an allocator's per-thread slot): one boundary check yields a
+  fresh-brand token, re-entry is refused rather than aliased, and every access
+  inside is compile-time-proven. This is the sound bridge for state that outlives
+  any single `brand_scope` closure.
+
 ## Quick start
 
 ```rust

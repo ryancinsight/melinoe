@@ -1,8 +1,10 @@
 //! [`MelinoeCell`] — branded interior mutability with token-mediated access.
 
+mod pair;
 mod reference;
 mod slice;
 
+pub use pair::MelinoeCell2;
 pub use reference::{MelinoeMut, MelinoeRef};
 pub use slice::CellSliceExt;
 
