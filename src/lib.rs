@@ -132,7 +132,7 @@ mod static_assertions;
 #[doc(inline)]
 pub use cell::{CellSliceExt, MelinoeCell, MelinoeCell2, MelinoeMut, MelinoeRef};
 #[doc(inline)]
-pub use reentrant::ReentrancyCell;
+pub use reentrant::{GuardedCell, ReentrancyCell};
 #[doc(inline)]
 pub use region::WriterShard;
 #[doc(inline)]

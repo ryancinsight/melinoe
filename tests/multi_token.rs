@@ -1,7 +1,7 @@
 //! Multi-token / multi-brand integration tests: simultaneous disjoint exclusive
 //! access (multi-XOR), two-brand AND-cells, and the re-entrancy gate.
 
-use melinoe::reentrant::{Reentered, ReentrancyCell};
+use melinoe::reentrant::{GuardedCell, Reentered, ReentrancyCell};
 use melinoe::{brand_scope2, brand_scope3, MelinoeCell, MelinoeCell2};
 
 #[test]
@@ -88,4 +88,41 @@ fn reentrancy_gate_sequential_reuse() {
     let a = gate.enter(|_| 1).unwrap();
     let b = gate.enter(|_| 2).unwrap();
     assert_eq!(a + b, 3);
+}
+
+#[test]
+fn guarded_cell_exclusive_mut_and_reentry_refused() {
+    let cache = GuardedCell::new(vec![1, 2, 3]);
+    let len = cache
+        .enter(|v| {
+            v.push(4);
+            // Re-entrant borrow refused, not aliased.
+            assert_eq!(cache.enter(|_| ()).unwrap_err(), Reentered);
+            v.len()
+        })
+        .unwrap();
+    assert_eq!(len, 4);
+    assert_eq!(cache.into_inner(), vec![1, 2, 3, 4]);
+}
+
+#[test]
+fn guarded_cell_clears_flag_after_panic() {
+    let cache = GuardedCell::new(0_u64);
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = cache.enter(|_| panic!("boom"));
+    }));
+    assert!(r.is_err());
+    // The hand-rolled `is_allocating` idiom would stay poisoned here; the drop
+    // guard cleared it, so the cell is reusable.
+    assert!(!cache.is_active());
+    assert_eq!(cache.enter(|n| *n + 9), Ok(9));
+}
+
+#[test]
+fn guarded_cell_unguarded_skips_flag() {
+    let cache = GuardedCell::new(10_i32);
+    // SAFETY: the closure does not re-enter the cell.
+    let doubled = unsafe { cache.enter_unguarded(|n| *n * 2) }.unwrap();
+    assert_eq!(doubled, 20);
+    assert!(!cache.is_active());
 }
