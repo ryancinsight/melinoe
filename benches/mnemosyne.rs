@@ -1,6 +1,7 @@
 //! Mnemosyne-oriented benchmarks: access patterns a branded allocator actually
-//! exercises, comparing per-cell token access against Melinoe's zero-copy slice
-//! views, plus a `Cow` borrow-or-spill escape decision.
+//! exercises — per-cell token access vs Melinoe's zero-copy slice views, a `Cow`
+//! borrow-or-spill escape decision, and ambient guarded interior mutability
+//! (`GuardedCell` vs `RefCell` vs the raw `is_allocating` idiom).
 //!
 //! Mnemosyne brands heap blocks with an invariant `'brand` and mediates access
 //! through an `AllocatorToken<'brand>` (a single `!Send` token), reading/writing
@@ -17,8 +18,10 @@
 #![allow(missing_docs)]
 
 use std::borrow::Cow;
+use std::cell::{Cell, RefCell, UnsafeCell};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use melinoe::reentrant::GuardedCell;
 use melinoe::{brand_scope, CellSliceExt, MelinoeCell};
 
 /// Bulk slab initialisation: write every block. The slice view lowers to a
@@ -130,5 +133,82 @@ fn bench_cow_escape(c: &mut Criterion) {
     g.finish();
 }
 
-criterion_group!(benches, bench_slab_fill, bench_slab_scan, bench_cow_escape);
+/// The hand-rolled `UnsafeCell<T>` + `is_allocating: bool` idiom that
+/// [`GuardedCell`] replaces — re-entrancy-checked, but *not* panic-safe (no drop
+/// guard, so a panicking `f` would leave the flag stuck).
+struct RawSlot<T> {
+    value: UnsafeCell<T>,
+    active: Cell<bool>,
+}
+
+impl<T> RawSlot<T> {
+    fn new(value: T) -> Self {
+        Self {
+            value: UnsafeCell::new(value),
+            active: Cell::new(false),
+        }
+    }
+
+    #[inline]
+    fn with<R>(&self, f: impl FnOnce(&mut T) -> R) -> Option<R> {
+        if self.active.get() {
+            return None;
+        }
+        self.active.set(true);
+        // SAFETY: flag rejects re-entry; single-threaded bench.
+        let r = f(unsafe { &mut *self.value.get() });
+        self.active.set(false);
+        Some(r)
+    }
+}
+
+/// Ambient guarded interior mutability (the per-thread allocator-slot access
+/// pattern): cost of one re-entrancy-checked `&mut` borrow + mutation.
+/// `GuardedCell` vs `RefCell` vs the raw idiom it supersedes.
+fn bench_guarded_access(c: &mut Criterion) {
+    const ITERS: u64 = 4096;
+    let mut g = c.benchmark_group("guarded_access_4096x");
+    g.throughput(Throughput::Elements(ITERS));
+
+    g.bench_function("guardedcell", |b| {
+        let cell = GuardedCell::new(0u64);
+        b.iter(|| {
+            for _ in 0..ITERS {
+                cell.enter(|v| *v = v.wrapping_add(black_box(1))).unwrap();
+            }
+            black_box(cell.enter(|v| *v).unwrap())
+        });
+    });
+
+    g.bench_function("refcell", |b| {
+        let cell = RefCell::new(0u64);
+        b.iter(|| {
+            for _ in 0..ITERS {
+                let mut guard = cell.borrow_mut();
+                *guard = guard.wrapping_add(black_box(1));
+            }
+            black_box(*cell.borrow())
+        });
+    });
+
+    g.bench_function("raw_unsafecell_bool", |b| {
+        let cell = RawSlot::new(0u64);
+        b.iter(|| {
+            for _ in 0..ITERS {
+                cell.with(|v| *v = v.wrapping_add(black_box(1))).unwrap();
+            }
+            black_box(cell.with(|v| *v).unwrap())
+        });
+    });
+
+    g.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_slab_fill,
+    bench_slab_scan,
+    bench_cow_escape,
+    bench_guarded_access
+);
 criterion_main!(benches);

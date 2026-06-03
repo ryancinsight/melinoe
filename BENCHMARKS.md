@@ -1,17 +1,21 @@
 # Benchmarks: Melinoe vs `Mutex` / `RwLock` / `AtomicU64`
 
-Reproduce:
+Reproduce (four Criterion harnesses):
 
 ```sh
-cargo bench --bench access
-# faster, lower-confidence sweep:
-cargo bench --bench access -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
+cargo bench --bench access            # single-thread RMW/read + partitioned writes
+cargo bench --bench concurrent_reads  # read throughput, 1→16 threads
+cargo bench --bench false_sharing     # disjoint per-thread counters
+cargo bench --bench mnemosyne         # slab access, Cow escape, GuardedCell
+# faster, lower-confidence sweep — append to any of the above:
+#   -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
 ```
 
-Harness: [`benches/access.rs`](benches/access.rs) (Criterion). Equivalence of the
-work measured is pinned by [`tests/differential.rs`](tests/differential.rs),
-which asserts all four mechanisms compute identical results — the comparison is
-over the *same* computation, not coincidentally-similar ones.
+Figures below are a single refreshed run on a 24-core `x86_64` host (release).
+Equivalence of the work measured is pinned by
+[`tests/differential.rs`](tests/differential.rs), which asserts the mechanisms
+compute identical results — the comparison is over the *same* computation, not
+coincidentally-similar ones.
 
 ## What is and isn't being compared
 
@@ -32,19 +36,19 @@ interval, normalised to per-operation.
 
 | Mechanism        | Time / 1024 ops | Per op    | vs Melinoe |
 |------------------|-----------------|-----------|-----------:|
-| **Melinoe**      | 219.7 ns        | ~0.21 ns  |       1.0× |
-| `AtomicU64` (Relaxed) | 6.26 µs    | ~6.1 ns   |      ~29×  |
-| `RwLock` (write) | 8.78 µs         | ~8.6 ns   |      ~40×  |
-| `Mutex`          | 11.93 µs        | ~11.6 ns  |      ~54×  |
+| **Melinoe**      | 206 ns          | ~0.20 ns  |       1.0× |
+| `AtomicU64` (Relaxed) | 6.29 µs    | ~6.1 ns   |      ~30×  |
+| `Mutex`          | 12.16 µs        | ~11.9 ns  |      ~59×  |
+| `RwLock` (write) | 12.28 µs        | ~12.0 ns  |      ~60×  |
 
 ### Single-threaded read (`read_1024x`)
 
 | Mechanism        | Time / 1024 ops | Note |
 |------------------|-----------------|------|
-| **Melinoe**      | ~220 ps         | The loop-invariant `&T` read is hoisted out of the loop — exactly the optimization a bare reference permits and a lock/atomic forbids. |
-| `AtomicU64` (Relaxed) | 106 ns     | Relaxed load is cheap but not freely hoistable. |
+| **Melinoe**      | ~197 ps         | The loop-invariant `&T` read is hoisted out of the loop — exactly the optimization a bare reference permits and a lock/atomic forbids. |
+| `AtomicU64` (Relaxed) | 105 ns     | Relaxed load is cheap but not freely hoistable. |
 | `Mutex`          | 8.03 µs         | A lock acquire/release per read. |
-| `RwLock` (read)  | 9.01 µs         | A read-lock (atomic RMW on the lock word) per read. |
+| `RwLock` (read)  | 10.59 µs        | A read-lock (atomic RMW on the lock word) per read. |
 
 The sub-nanosecond Melinoe figure is **not** a realistic single-access latency;
 it is the optimizer proving the repeated read redundant because token access
@@ -65,13 +69,16 @@ are real. Reported as **throughput, Gelem/s** across thread counts (24-core host
 
 | threads | **melinoe** | `RwLock` read | `Mutex` | `AtomicU64` (per-elem) |
 |--------:|------------:|--------------:|--------:|-----------------------:|
-| 1  | 13.3 | 12.0 | 12.2 | 7.6  |
-| 2  | 24.3 | 10.3 | 9.3  | 15.0 |
-| 4  | 45.3 | 10.4 | 8.0  | 29.3 |
-| 8  | 74.0 | 11.6 | 6.9  | 46.6 |
+| 1  | 11.7 | 10.3 | 10.9 | 7.6  |
+| 2  | 22.9 | 11.1 | 10.0 | 15.0 |
+| 4  | 45.9 | 10.2 | 8.4  | 29.2 |
+| 8  | 77.3 | 10.9 | 7.2  | 49.6 |
 | 16 | **103.5** | 9.8 | 6.7 | 72.9 |
 
-* **Melinoe scales near-linearly** (≈7.8× from 1→16 threads): a branded read is a
+Run-to-run variance is ±15–25% (register-promoted loops, scheduling); the
+*shape* is the signal, not any single cell.
+
+* **Melinoe scales near-linearly** (≈9× from 1→16 threads): a branded read is a
   plain load with *zero shared mutable state*, so cores never contend.
 * **`RwLock` does not scale** — it is flat-to-degrading (~10 Gelem/s at every
   thread count) because `read()` does an atomic RMW on the shared reader count,
@@ -94,12 +101,12 @@ and dominated by thread-spawn overhead, measuring nothing useful).
 
 | Mechanism | Time | Speedup vs 1 thread |
 |-----------|------|--------------------:|
-| `single_thread` (baseline) | 14.6 ms | 1.00× |
-| **Melinoe** disjoint shards | 5.16 ms | **2.83×** |
-| `AtomicU64` disjoint stores | 5.11 ms | 2.86× |
-| `Mutex<Vec>` (lock across writers) | 17.3 ms | **0.84×** (slower than serial) |
+| `single_thread` (baseline) | 14.68 ms | 1.00× |
+| **Melinoe** disjoint shards | 4.42 ms | **3.32×** |
+| `AtomicU64` disjoint stores | 4.18 ms | 3.51× |
+| `Mutex<Vec>` (lock across writers) | 15.29 ms | **0.96×** (slower than serial) |
 
-* Melinoe shards achieve real parallel speedup (~2.8× on 4 cores) using **plain
+* Melinoe shards achieve real parallel speedup (~3.3× on 4 cores) using **plain
   stores** — no synchronization on the write path.
 * They match lock-free atomics here because the heavy per-element compute hides
   the atomic-store cost; when stores dominate, Melinoe's plain store is far
@@ -121,8 +128,8 @@ access vs Melinoe's zero-copy [`CellSliceExt`](src/cell/slice.rs) views, and a
 
 | Benchmark (64k u64 slab) | per-cell token | slice view | Result |
 |--------------------------|----------------|------------|--------|
-| `slab_fill` (write all)  | 6.15 µs | 6.21 µs | **parity** |
-| `slab_scan` (sum all)    | 6.44 µs | 6.26 µs | **parity** |
+| `slab_fill` (write all)  | 6.13 µs | 6.22 µs | **parity** |
+| `slab_scan` (sum all)    | 6.06 µs | 6.08 µs | **parity** |
 
 The slice view *matches* the per-cell path rather than beating it — which is the
 point: per-cell token access is already zero-cost and autovectorizes to the same
@@ -133,14 +140,33 @@ speedup claim.
 
 | `cow_escape` (4k u8, 1-in-8 must own) | time | |
 |---------------------------------------|------|--|
-| `always_owned` (clone every call)     | 65.6 ns | 1.00× |
-| `cow_borrow_mostly` (clone 1/8 calls) | 33.7 ns | **1.95× faster** |
+| `always_owned` (clone every call)     | 66.7 ns | 1.00× |
+| `cow_borrow_mostly` (clone 1/8 calls) | 33.7 ns | **1.97× faster** |
 
 `Cow` nearly halves cost by borrowing the branded slab zero-copy on the common
 transient path and cloning only when a buffer must outlive the brand scope. It
 lives at the ownership boundary by design: inside the zero-cost access core a
 branded borrow is *always* zero-copy, so a `Cow` there would be a degenerate
 always-`Borrowed`.
+
+### Ambient guarded interior mutability (`guarded_access_4096x`)
+
+The per-thread allocator-slot access pattern: one re-entrancy-checked `&mut`
+borrow + mutation per op. [`GuardedCell`](src/reentrant.rs) vs `RefCell` vs the
+hand-rolled `UnsafeCell<T>` + `is_allocating: bool` idiom it supersedes.
+
+| Mechanism | Time / 4096 ops | Per op |
+|-----------|-----------------|-------:|
+| **`GuardedCell::enter`** | 801 ns | ~0.20 ns |
+| `RefCell::borrow_mut`    | 808 ns | ~0.20 ns |
+| raw `UnsafeCell` + `bool` | 857 ns | ~0.21 ns |
+
+`GuardedCell` is **at parity** with `RefCell` and the raw idiom — the guard
+compiles to the bare mutation when re-entry is statically impossible in the loop.
+The win is not speed but **panic-safety**: `GuardedCell` clears its flag via a
+drop guard, so a panicking closure cannot poison the cell, whereas the raw idiom
+(and a hand-written `is_allocating` bool) leaks the flag on unwind. Same cost,
+strictly safer.
 
 ## Disjoint per-thread counters: false sharing & memory (`cargo bench --bench false_sharing`)
 
@@ -150,13 +176,13 @@ write can be register-promoted.
 
 | Variant | Throughput | Memory / counter |
 |---------|-----------:|-----------------:|
-| `raw_split_mut` (`&mut u64`) | 9.2 Gelem/s | 8 B |
-| **`melinoe_shards`** (`MelinoeCell<u64>`) | **10.1 Gelem/s** | **8 B** |
+| `raw_split_mut` (`&mut u64`) | 15.3 Gelem/s | 8 B |
+| **`melinoe_shards`** (`MelinoeCell<u64>`) | **15.7 Gelem/s** | **8 B** |
 | `atomic_adjacent` (`AtomicU64`) | 0.12 Gelem/s | 8 B |
-| `atomic_padded` (`#[repr(align(128))]`) | 1.06 Gelem/s | 128 B |
+| `atomic_padded` (`#[repr(align(128))]`) | 1.08 Gelem/s | 128 B |
 
 * **Melinoe matches raw `split_at_mut`** — the disjoint shard is zero-cost.
-* It is **~83× faster than adjacent atomics** and **~9.5× faster than padded
+* It is **~125× faster than adjacent atomics** and **~14× faster than padded
   atomics**, at **8 B/counter** (no padding). Because the type system proves
   single-writer, the compiler keeps the counter in a register and writes back
   once, so the shared cache line is never touched mid-loop — no false sharing,
