@@ -23,7 +23,9 @@
 //!   reads; the absence of a live `&mut` token statically excludes writers.
 //!
 //! When the `std` feature is enabled, [`scope_exclusive`] demonstrates the
-//! handoff pattern over [`std::thread::scope`].
+//! handoff pattern over [`std::thread::scope`], and [`PartitionPlan`] controls
+//! lock-free disjoint write scheduling by fixed part count, reported hardware
+//! parallelism, or fixed chunk size.
 
 mod region;
 mod thread_local;
@@ -39,4 +41,7 @@ pub use scoped::scope_exclusive;
 #[cfg(feature = "std")]
 mod partition;
 #[cfg(feature = "std")]
-pub use partition::{partition_for_each, partition_map};
+pub use partition::{
+    partition_for_each, partition_for_each_available, partition_for_each_with, partition_map,
+    partition_map_available, partition_map_with, PartitionPlan,
+};

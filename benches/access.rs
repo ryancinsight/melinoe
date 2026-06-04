@@ -33,7 +33,10 @@ use std::sync::{Mutex, RwLock};
 use std::thread;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use melinoe::sync::partition_for_each;
+use melinoe::sync::{
+    partition_for_each, partition_for_each_available, partition_for_each_with, partition_map,
+    partition_map_available, partition_map_with, PartitionPlan,
+};
 use melinoe::{brand_scope, MelinoeCell};
 
 /// Inner-loop length per sampled iteration (amortises criterion's per-sample
@@ -221,7 +224,7 @@ fn bench_partitioned_writes(c: &mut Criterion) {
     });
 
     // Melinoe: disjoint shards, one per thread, plain stores — no atomics, no locks.
-    g.bench_function("melinoe_shards", |b| {
+    g.bench_function("melinoe_fixed_parts", |b| {
         brand_scope(|_token| {
             let mut cells: Vec<MelinoeCell<'_, u64>> =
                 (0..N).map(|_| MelinoeCell::new(0)).collect();
@@ -231,6 +234,42 @@ fn bench_partitioned_writes(c: &mut Criterion) {
                         *slot = mix((start + j) as u64);
                     }
                 });
+            });
+            black_box(cells.len());
+        });
+    });
+
+    // Melinoe: use the process's reported hardware parallelism.
+    g.bench_function("melinoe_available_parallelism", |b| {
+        brand_scope(|_token| {
+            let mut cells: Vec<MelinoeCell<'_, u64>> =
+                (0..N).map(|_| MelinoeCell::new(0)).collect();
+            b.iter(|| {
+                partition_for_each_available(&mut cells, |start, mut shard| {
+                    for (j, slot) in shard.iter_mut().enumerate() {
+                        *slot = mix((start + j) as u64);
+                    }
+                });
+            });
+            black_box(cells.len());
+        });
+    });
+
+    // Melinoe: fixed cache-sized chunks, independent of worker count.
+    g.bench_function("melinoe_chunked", |b| {
+        brand_scope(|_token| {
+            let mut cells: Vec<MelinoeCell<'_, u64>> =
+                (0..N).map(|_| MelinoeCell::new(0)).collect();
+            b.iter(|| {
+                partition_for_each_with(
+                    &mut cells,
+                    PartitionPlan::chunk_size(N / THREADS),
+                    |start, mut shard| {
+                        for (j, slot) in shard.iter_mut().enumerate() {
+                            *slot = mix((start + j) as u64);
+                        }
+                    },
+                );
             });
             black_box(cells.len());
         });
@@ -280,11 +319,68 @@ fn bench_partitioned_writes(c: &mut Criterion) {
     g.finish();
 }
 
+fn bench_partition_driver(c: &mut Criterion) {
+    let mut g = c.benchmark_group("partition_driver");
+
+    g.bench_function("empty_region", |b| {
+        brand_scope(|_token| {
+            let mut cells: Vec<MelinoeCell<'_, u64>> = Vec::new();
+            b.iter(|| {
+                let results: Vec<usize> =
+                    partition_map(&mut cells, black_box(128), |_start, shard| shard.len());
+                black_box(results.len())
+            });
+        });
+    });
+
+    g.bench_function("overrequested_parts", |b| {
+        brand_scope(|_token| {
+            let mut cells: Vec<MelinoeCell<'_, u64>> =
+                (0..8).map(|_| MelinoeCell::new(0)).collect();
+            b.iter(|| {
+                let results: Vec<usize> =
+                    partition_map(&mut cells, black_box(128), |_start, shard| shard.len());
+                black_box(results)
+            });
+        });
+    });
+
+    g.bench_function("available_parallelism", |b| {
+        brand_scope(|_token| {
+            let mut cells: Vec<MelinoeCell<'_, u64>> =
+                (0..128).map(|_| MelinoeCell::new(0)).collect();
+            b.iter(|| {
+                let results: Vec<usize> =
+                    partition_map_available(&mut cells, |_start, shard| shard.len());
+                black_box(results)
+            });
+        });
+    });
+
+    g.bench_function("chunk_size_16", |b| {
+        brand_scope(|_token| {
+            let mut cells: Vec<MelinoeCell<'_, u64>> =
+                (0..128).map(|_| MelinoeCell::new(0)).collect();
+            b.iter(|| {
+                let results: Vec<usize> = partition_map_with(
+                    &mut cells,
+                    PartitionPlan::chunk_size(16),
+                    |_start, shard| shard.len(),
+                );
+                black_box(results)
+            });
+        });
+    });
+
+    g.finish();
+}
+
 criterion_group!(
     benches,
     bench_increment,
     bench_read,
     bench_interior_mut,
-    bench_partitioned_writes
+    bench_partitioned_writes,
+    bench_partition_driver
 );
 criterion_main!(benches);

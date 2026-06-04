@@ -83,7 +83,10 @@ fn shard_into_iterator() {
 #[cfg(feature = "std")]
 mod concurrent {
     use super::*;
-    use melinoe::sync::{partition_for_each, partition_map};
+    use melinoe::sync::{
+        partition_for_each, partition_for_each_available, partition_for_each_with, partition_map,
+        partition_map_available, partition_map_with, PartitionPlan,
+    };
 
     /// Four threads concurrently fill disjoint partitions with global indices;
     /// the joined region equals the identity mapping.
@@ -130,6 +133,150 @@ mod concurrent {
             // Per-shard partial sums add up to the closed form 0+1+..+(N-1).
             let expected = (N as u64 - 1) * N as u64 / 2;
             assert_eq!(sums.iter().sum::<u64>(), expected);
+        });
+    }
+
+    /// Empty regions spawn no shards and therefore never invoke the worker.
+    #[test]
+    fn partition_map_empty_region_returns_empty_results() {
+        brand_scope(|_token| {
+            let mut cells: Vec<MelinoeCell<'_, u64>> = Vec::new();
+
+            let results: Vec<u64> = partition_map(&mut cells, 8, |_start, _shard| {
+                panic!("empty regions must not produce worker shards");
+            });
+
+            assert!(results.is_empty());
+        });
+    }
+
+    /// Requesting more partitions than cells still produces only non-empty
+    /// shards, in order, with exact full coverage.
+    #[test]
+    fn partition_map_overpartitioning_produces_no_empty_shards() {
+        const N: usize = 5;
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> =
+                (0..N).map(|_| MelinoeCell::new(usize::MAX)).collect();
+
+            let lengths: Vec<usize> = partition_map(&mut cells, 32, |start, mut shard| {
+                assert!(!shard.is_empty());
+                for (j, slot) in shard.iter_mut().enumerate() {
+                    *slot = start + j;
+                }
+                shard.len()
+            });
+
+            assert_eq!(lengths, vec![1, 1, 1, 1, 1]);
+            let snap = token.share();
+            let seen: Vec<usize> = cells.iter().map(|c| *c.borrow(snap)).collect();
+            assert_eq!(seen, vec![0, 1, 2, 3, 4]);
+        });
+    }
+
+    /// The typed fixed-part plan is equivalent to the legacy `parts` argument
+    /// while making the scheduling policy explicit at the call site.
+    #[test]
+    fn partition_map_with_fixed_parts_matches_legacy_partition_map() {
+        const N: usize = 33;
+        let fill = |v: usize| v.wrapping_mul(11).wrapping_add(5);
+
+        let legacy = brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> =
+                (0..N).map(|_| MelinoeCell::new(0)).collect();
+            partition_for_each(&mut cells, 4, |start, mut shard| {
+                for (j, slot) in shard.iter_mut().enumerate() {
+                    *slot = fill(start + j);
+                }
+            });
+            let snap = token.share();
+            cells.iter().map(|c| *c.borrow(snap)).collect::<Vec<_>>()
+        });
+
+        let planned = brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> =
+                (0..N).map(|_| MelinoeCell::new(0)).collect();
+            partition_for_each_with(&mut cells, PartitionPlan::parts(4), |start, mut shard| {
+                for (j, slot) in shard.iter_mut().enumerate() {
+                    *slot = fill(start + j);
+                }
+            });
+            let snap = token.share();
+            cells.iter().map(|c| *c.borrow(snap)).collect::<Vec<_>>()
+        });
+
+        assert_eq!(planned, legacy);
+    }
+
+    /// Chunk-size plans expose cache/tile-oriented scheduling directly.
+    #[test]
+    fn partition_map_with_chunk_size_tiles_region() {
+        const N: usize = 10;
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> =
+                (0..N).map(|_| MelinoeCell::new(usize::MAX)).collect();
+
+            let lengths: Vec<usize> = partition_map_with(
+                &mut cells,
+                PartitionPlan::chunk_size(4),
+                |start, mut shard| {
+                    for (j, slot) in shard.iter_mut().enumerate() {
+                        *slot = start + j;
+                    }
+                    shard.len()
+                },
+            );
+
+            assert_eq!(lengths, vec![4, 4, 2]);
+            let snap = token.share();
+            let seen: Vec<usize> = cells.iter().map(|c| *c.borrow(snap)).collect();
+            assert_eq!(seen, (0..N).collect::<Vec<_>>());
+        });
+    }
+
+    /// Hardware-parallel planning must remain value-equivalent independent of
+    /// the platform's reported CPU count.
+    #[test]
+    fn available_parallelism_plan_covers_region_once() {
+        const N: usize = 257;
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> =
+                (0..N).map(|_| MelinoeCell::new(usize::MAX)).collect();
+
+            let lengths: Vec<usize> = partition_map_available(&mut cells, |start, mut shard| {
+                assert!(!shard.is_empty());
+                for (j, slot) in shard.iter_mut().enumerate() {
+                    *slot = (start + j).wrapping_mul(3);
+                }
+                shard.len()
+            });
+
+            assert_eq!(lengths.iter().sum::<usize>(), N);
+            let snap = token.share();
+            for (index, cell) in cells.iter().enumerate() {
+                assert_eq!(*cell.borrow(snap), index * 3);
+            }
+        });
+    }
+
+    /// The available-parallel for-each convenience function is a write-only
+    /// wrapper over the same shard plan.
+    #[test]
+    fn partition_for_each_available_writes_region() {
+        const N: usize = 64;
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> =
+                (0..N).map(|_| MelinoeCell::new(0)).collect();
+
+            partition_for_each_available(&mut cells, |start, mut shard| {
+                for (j, slot) in shard.iter_mut().enumerate() {
+                    *slot = start + j + 1;
+                }
+            });
+
+            let snap = token.share();
+            let seen: Vec<usize> = cells.iter().map(|c| *c.borrow(snap)).collect();
+            assert_eq!(seen, (1..=N).collect::<Vec<_>>());
         });
     }
 
