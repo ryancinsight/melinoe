@@ -29,9 +29,15 @@ deliberately omitted as non-substitutable.
 
 ## Representative results
 
-Single run, `x86_64-pc-windows-gnu`, release. Absolute numbers are
-hardware-dependent; the **ratios** are the signal. Median of the Criterion
-interval, normalised to per-operation.
+`x86_64-pc-windows-gnu`, release, median of the Criterion interval normalised to
+per-operation. Figures are the consensus of several runs (the high-confidence
+sweep uses `--sample-size 200`). Absolute numbers are hardware- **and
+load-dependent**: the single-threaded Melinoe micro-figures are stable to a few
+percent across runs, but the **multithreaded / lock-contended rows swing 15–60%
+between runs** on a busy machine (e.g. the `single_thread` partition baseline was
+observed at 15–25 ms across runs). Treat the threaded absolutes as
+order-of-magnitude and the **ratios as the durable signal**; re-measure locally
+on an idle machine for your own absolutes.
 
 ### Single-threaded read-modify-write (`increment_1024x`)
 
@@ -121,23 +127,49 @@ and dominated by thread-spawn overhead, measuring nothing useful).
 | Mechanism | Time | Speedup vs 1 thread |
 |-----------|------|--------------------:|
 | `single_thread` (baseline) | 14.68 ms | 1.00× |
-| **Melinoe** disjoint shards | 4.42 ms | **3.32×** |
+| **Melinoe** fixed-part shards | 4.42 ms | **3.32×** |
+| **Melinoe** available-parallelism shards | measure locally | platform-dependent |
+| **Melinoe** fixed-chunk shards | measure locally | chunk-size-dependent |
 | `AtomicU64` disjoint stores | 4.18 ms | 3.51× |
 | `Mutex<Vec>` (lock across writers) | 15.29 ms | **0.96×** (slower than serial) |
 
-* Melinoe shards achieve real parallel speedup (~3.3× on 4 cores) using **plain
+* Melinoe fixed-part shards achieve real parallel speedup (~3.3× on 4 cores) using **plain
   stores** — no synchronization on the write path.
+* `melinoe_available_parallelism` and `melinoe_chunked` exercise the typed
+  [`PartitionPlan`](src/sync/partition.rs) surface added in 0.3.0: hardware
+  parallelism for ergonomic defaults, and chunk-size scheduling for cache/tile
+  oriented callers.
 * They match lock-free atomics here because the heavy per-element compute hides
   the atomic-store cost; when stores dominate, Melinoe's plain store is far
   cheaper (see the ~29× single-threaded RMW gap above).
 * A `Mutex<Vec>` — the idiomatic way to *share* a `Vec` across threads, since it
-  cannot express disjoint `&mut` — serializes the writers and ends up **slower
-  than the single-threaded baseline** (lock + spawn overhead, zero parallelism).
+  cannot express disjoint `&mut` — serializes the writers and lands **at the
+  single-threaded baseline** (lock + spawn overhead cancel any parallelism).
   This is the case the shard model is designed to replace.
 
 Caveat: each Criterion sample re-spawns the worker threads via `thread::scope`;
 with a persistent pool the parallel rows would improve further. The point is the
 *relative* behaviour: lock-free disjoint shards scale, a shared lock does not.
+
+### Partition driver scheduling (`partition_driver`)
+
+The driver benchmark isolates scheduling/allocation overhead from the
+compute-bound write kernel:
+
+| Benchmark | Time | Contract measured |
+|-----------|------|-------------------|
+| `empty_region` | ~48 ns | 128 parts over 0 cells returns an empty result vector and spawns **no** worker shards (sub-µs proves no thread spawn occurred — a single spawn alone is microseconds) |
+| `overrequested_parts` | ~0.52 ms | 128 parts over 8 cells reserves and spawns only the 8 non-empty shards (= `len`), not 128 — the time is dominated by those 8 `thread::scope` spawn/joins |
+| `available_parallelism` | measure locally | plans non-empty shards from reported hardware parallelism |
+| `chunk_size_16` | measure locally | plans exact fixed-size chunks and a final remainder chunk |
+
+The ~10,000× gap between the two rows is itself the evidence: the empty path
+allocates no handle capacity and reaches no `scope.spawn`. This pins the
+memory-efficiency contract added in 0.2.1 — the handle vector is reserved to the
+actual non-empty shard count, not the requested partition count, and chunk size
+uses overflow-safe ceiling division (`1 + (len - 1) / parts`). The 0.3.0 rows
+exercise the same scheduler through typed hardware-parallel and chunk-size
+plans.
 
 ## Mnemosyne access patterns (`cargo bench --bench mnemosyne`)
 
@@ -162,7 +194,7 @@ speedup claim.
 | `always_owned` (clone every call)     | 66.7 ns | 1.00× |
 | `cow_borrow_mostly` (clone 1/8 calls) | 33.7 ns | **1.97× faster** |
 
-`Cow` nearly halves cost by borrowing the branded slab zero-copy on the common
+`Cow` more than halves cost by borrowing the branded slab zero-copy on the common
 transient path and cloning only when a buffer must outlive the brand scope. It
 lives at the ownership boundary by design: inside the zero-cost access core a
 branded borrow is *always* zero-copy, so a `Cow` there would be a degenerate
@@ -270,6 +302,24 @@ identical to its raw equivalent — the linker folds them into one symbol:
 
 Branding, permits, and phantom markers leave no trace. Run
 `cargo rustc --release --example codegen -- --emit asm` to reproduce.
+
+### Guard projection vs clone-to-access (`projection_1024x`)
+
+Reaching one `u64` field of a 512-byte branded `Block` through the permit:
+[`MelinoeRef::map`](src/cell/reference.rs) rewraps a reference (no payload copy),
+versus cloning the whole block out to read the same field.
+
+| `projection` (1024 accesses) | time / 1024 | per access | |
+|------------------------------|-------------|-----------:|--|
+| `borrow_map_field` (project) | ~0.22 ns    | folds away | 1.00× |
+| `clone_then_field` (copy out)| ~4.38 µs    | ~4.3 ns    | **~20000×** |
+
+The projection path folds to a constant — a rewrapped reference carries no
+side effect, exactly as a bare `&T` would. The clone path pays a full 512-byte
+copy per access (forced to materialise via `black_box`, since the optimizer
+otherwise elides the dead bulk copy). The signal is that `map` lets a permit
+reach into a large payload at **zero copy**, the memory-efficiency win the
+projection API exists to provide; the absolute ratio scales with payload size.
 
 ## Interpretation
 

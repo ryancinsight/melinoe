@@ -72,6 +72,55 @@
 //! });
 //! ```
 //!
+//! A borrow guard can be **projected** onto a component of its payload without
+//! copying and without re-presenting the permit—the branded analogue of
+//! [`Ref::map`](core::cell::Ref::map). [`MelinoeMut::map_split`] further yields
+//! two disjoint `&mut` projections from a single write permit:
+//!
+//! ```
+//! use melinoe::{brand_scope, MelinoeCell, MelinoeMut};
+//!
+//! brand_scope(|mut token| {
+//!     let cell = MelinoeCell::new((0_u32, 0_u32));
+//!     // One write permit, two disjoint field writers, live at once.
+//!     let (mut a, mut b) =
+//!         MelinoeMut::map_split(cell.borrow_mut(&mut token), |t| (&mut t.0, &mut t.1));
+//!     *a = 1;
+//!     *b = 2;
+//!     drop((a, b));
+//!     assert_eq!(*cell.borrow(&token), (1, 2));
+//! });
+//! ```
+//!
+//! With `std`, [`sync::PartitionPlan`] drives scoped, disjoint multithreaded
+//! writes by fixed part count, current hardware parallelism, or fixed chunk
+//! size. Each worker receives one [`WriterShard`] and no runtime lock protects
+//! the write path:
+//!
+//! ```
+//! #[cfg(feature = "std")]
+//! {
+//! use melinoe::sync::{partition_for_each_with, PartitionPlan};
+//! use melinoe::{brand_scope, MelinoeCell};
+//!
+//! brand_scope(|token| {
+//!     let mut cells: Vec<MelinoeCell<'_, usize>> =
+//!         (0..8).map(|_| MelinoeCell::new(0)).collect();
+//!
+//!     partition_for_each_with(&mut cells, PartitionPlan::chunk_size(2), |start, mut shard| {
+//!         for (j, slot) in shard.iter_mut().enumerate() {
+//!             *slot = start + j;
+//!         }
+//!     });
+//!
+//!     let snap = token.share();
+//!     for (index, cell) in cells.iter().enumerate() {
+//!         assert_eq!(*cell.borrow(snap), index);
+//!     }
+//! });
+//! }
+//! ```
+//!
 //! The borrow checker rejects the unsound interleavings at compile time:
 //!
 //! ```compile_fail

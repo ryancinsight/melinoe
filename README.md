@@ -124,6 +124,34 @@ brand_scope(|mut token| {
 });
 ```
 
+### Zero-copy guard projection
+
+A borrow guard can be narrowed to a component of its payload — the branded
+analogue of `Ref::map` / `RefMut::map` — carrying the permit evidence through
+without copying. `map_split` derives two disjoint `&mut` projections from a
+single write permit, the multi-field-writer pattern a `RefCell` can only express
+at runtime:
+
+```rust
+use melinoe::{brand_scope, MelinoeCell, MelinoeMut};
+
+brand_scope(|mut token| {
+    let cell = MelinoeCell::new((0_u32, 0_u32));
+    // One write permit → two disjoint field writers, live simultaneously.
+    let (mut a, mut b) =
+        MelinoeMut::map_split(cell.borrow_mut(&mut token), |t| (&mut t.0, &mut t.1));
+    *a = 1;
+    *b = 2;
+    drop((a, b));
+    assert_eq!(*cell.borrow(&token), (1, 2));
+});
+```
+
+This reaches into a large branded payload (e.g. a slab block header) at zero
+copy; the [benchmarks](BENCHMARKS.md) contrast it with cloning the block out to
+read one field. Verified sound under Miri (Stacked **and** Tree Borrows),
+including the disjoint-`&mut` split.
+
 The unsound interleavings simply do not compile:
 
 ```rust,compile_fail
@@ -194,7 +222,9 @@ with cores, reaching **~10× `RwLock`** and **~15× `Mutex`** at 16 threads — 
 For **concurrent writes**, disjoint [`WriterShard`](src/region/mod.rs) partitions
 scale near-linearly using plain stores, matching lock-free atomics while a
 `Mutex<Vec>` — which cannot express disjoint `&mut` — serializes and loses to the
-single-threaded baseline.
+single-threaded baseline. The partition driver reserves only the shard handles it
+can actually spawn and uses an overflow-safe ceiling division, so adversarially
+large `parts` values do not amplify allocation beyond the non-empty shard count.
 
 For **conditional atomics** ([`BrandedAtomic`](src/atomic.rs)), the exclusive
 phase is **~32×** cheaper than a real atomic RMW (plain stores), the shared phase
@@ -239,6 +269,43 @@ brand_scope(|token| {
 ```
 
 Verified data-race-free under Miri (Stacked Borrows + data-race detection).
+Empty regions produce no worker shards; requesting more partitions than cells
+produces one non-empty shard per cell.
+
+When the caller needs a typed scheduling policy instead of a raw part count,
+[`PartitionPlan`] supports fixed part count, reported hardware parallelism, and
+fixed chunk size:
+
+```rust
+use melinoe::sync::{partition_for_each_available, partition_for_each_with, PartitionPlan};
+use melinoe::{brand_scope, MelinoeCell};
+
+brand_scope(|token| {
+    let mut cells: Vec<MelinoeCell<'_, usize>> =
+        (0..64).map(|_| MelinoeCell::new(0)).collect();
+
+    // Use the process's reported hardware parallelism.
+    partition_for_each_available(&mut cells, |start, mut shard| {
+        for (j, slot) in shard.iter_mut().enumerate() {
+            *slot = start + j;
+        }
+    });
+
+    // Or select a cache/tile-oriented chunk size directly.
+    partition_for_each_with(&mut cells, PartitionPlan::chunk_size(16), |start, mut shard| {
+        for (j, slot) in shard.iter_mut().enumerate() {
+            *slot = start + j;
+        }
+    });
+
+    let snap = token.share();
+    for (k, c) in cells.iter().enumerate() {
+        assert_eq!(*c.borrow(snap), k);
+    }
+});
+```
+
+[`PartitionPlan`]: https://docs.rs/melinoe/latest/melinoe/sync/enum.PartitionPlan.html
 
 ## Integration with Mnemosyne
 
