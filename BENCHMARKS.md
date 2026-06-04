@@ -253,8 +253,10 @@ yet need.
 **Parity** — `BrandedAtomic` is a `#[repr(transparent)]` zero-cost wrapper on the
 atomic side; it adds no overhead when you *do* need atomics. So the cell is cheap
 when exclusive and free when shared. `Relaxed`, `AcqRel`, and `SeqCst` are ZST
-ordering policies for monomorphized ordering contracts; runtime `Ordering`
-parameters remain available for data-dependent ordering selection.
+ordering policies for monomorphized ordering contracts; `_with` methods call the
+sealed atomic mediation surface directly with associated constants, while
+runtime `Ordering` parameters remain available for data-dependent ordering
+selection.
 
 **Mixed phase** — 2048 private plain bumps then 2048 shared atomic ops, vs doing
 all 4096 atomically (`mixed_phase_build2k_publish2k`):

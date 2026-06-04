@@ -17,6 +17,9 @@ All notable changes to `melinoe` are documented here. The format follows
   `retain_cow` methods for the static zero-copy and retain-once cases.
 - `examples/codegen.rs` now probes `borrow_cow`, `fetch_add_with(Relaxed)`, and
   raw atomic interop through `as_atomic` against their raw equivalents.
+- `BrandedAtomic::*_with` methods now call the sealed atomic mediation surface
+  directly with ZST ordering associated constants instead of delegating through
+  runtime-`Ordering` wrapper methods.
 
 ## [0.4.0] — 2026-06-04
 

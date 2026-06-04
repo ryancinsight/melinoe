@@ -105,6 +105,8 @@ arity-specific `brand_scopeN`/`CellN` variants:
   for synchronization only while sharing — ~32× cheaper in the exclusive phase
   (0.19 ns vs 6.1 ns/op). The brand makes plain and atomic access *temporally
   exclusive*, so they can never race; verified data-race-free under Miri.
+  The `_with` methods use sealed ZST ordering policies directly, so fixed
+  ordering contracts do not route through the runtime-`Ordering` API.
 * **Conditional `Cow`** — `CellCowExt` places borrow-or-retain decisions at the
   ownership boundary. `Borrowed` and `Retained` are ZST policies for static
   retain decisions; `RetainDecision` covers data-dependent retention.
@@ -234,7 +236,8 @@ phase is **~32×** cheaper than a real atomic RMW (plain stores), the shared pha
 is **at parity** with a raw `AtomicU64` (zero-cost wrapper), and a mixed
 build-then-publish workload is **~1.93×** faster end to end. `Relaxed`,
 `AcqRel`, and `SeqCst` are ZST ordering policies for monomorphized call sites;
-the runtime `Ordering` methods remain available for data-dependent ordering.
+the `_with` methods lower directly through associated constants, while the
+runtime `Ordering` methods remain available for data-dependent ordering.
 `as_atomic` exposes the underlying atomic under a read permit for zero-copy
 interop with APIs that already operate on `Atomic*`.
 
@@ -379,8 +382,10 @@ and they fall into a few categories:
 * **Conditional atomics** (`BrandedAtomic`) — a `WritePermit` proves exclusivity
   for plain access; the atomic↔value pointer cast is layout-valid (an atomic has
   the same size/bit-validity as its value). ZST ordering policies and `Cow`
-  retain policies are pinned by compile-time size assertions. Raw atomic interop
-  through `as_atomic` is tied to a live read permit.
+  retain policies are pinned by compile-time size/alignment assertions. Static
+  ordering methods call the sealed atomic mediation surface directly with
+  associated constants. Raw atomic interop through `as_atomic` is tied to a live
+  read permit.
 * **`Send`/`Sync` impls** — the `GhostCell` bound, with reasoning recorded inline.
 
 The capability traits are **sealed**: downstream crates cannot forge a permit.

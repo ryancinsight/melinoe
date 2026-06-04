@@ -80,7 +80,10 @@ APIs rather than pointer reads; static `Cow` policies dispatch through policy
 method bodies, so the borrowed monomorph contains no clone branch. Added
 read-permit-gated `BrandedAtomic::as_atomic` for zero-copy interop with raw
 atomic APIs while preserving the shared-phase token proof; `as_atomic_mut` and
-`into_atomic` cover unique/owned extraction.
+`into_atomic` cover unique/owned extraction. Latest patch routes
+`BrandedAtomic::*_with` methods directly through the sealed atomic mediation
+surface with `AtomicOrder` associated constants, avoiding runtime-ordering
+wrapper calls in static policy monomorphs.
 
 ## Residual risk / non-goals
 

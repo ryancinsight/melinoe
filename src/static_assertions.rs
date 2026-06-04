@@ -7,7 +7,9 @@
 
 use core::mem::{align_of, size_of};
 
-use core::sync::atomic::AtomicUsize;
+#[cfg(target_has_atomic = "64")]
+use core::sync::atomic::AtomicU64;
+use core::sync::atomic::{AtomicBool, AtomicUsize};
 
 use crate::region::WriterShard;
 use crate::sync::{SyncRegionToken, ThreadLocalToken};
@@ -54,15 +56,27 @@ const _: () = {
     // ── A branded atomic is exactly its underlying atomic (brand marker is ZST). ──
     assert!(size_of::<BrandedAtomic<'static, AtomicUsize>>() == size_of::<AtomicUsize>());
     assert!(align_of::<BrandedAtomic<'static, AtomicUsize>>() == align_of::<AtomicUsize>());
+    #[cfg(target_has_atomic = "64")]
+    {
+        assert!(size_of::<BrandedAtomic<'static, AtomicU64>>() == size_of::<AtomicU64>());
+        assert!(align_of::<BrandedAtomic<'static, AtomicU64>>() == align_of::<AtomicU64>());
+    }
+    assert!(size_of::<BrandedAtomic<'static, AtomicBool>>() == size_of::<AtomicBool>());
+    assert!(align_of::<BrandedAtomic<'static, AtomicBool>>() == align_of::<AtomicBool>());
 
     // ── Ordering and Cow policies are ZSTs: they route strategy at compile time. ──
     assert!(size_of::<Relaxed>() == 0);
+    assert!(align_of::<Relaxed>() == 1);
     assert!(size_of::<AcqRel>() == 0);
+    assert!(align_of::<AcqRel>() == 1);
     assert!(size_of::<SeqCst>() == 0);
+    assert!(align_of::<SeqCst>() == 1);
 
     #[cfg(feature = "alloc")]
     {
         assert!(size_of::<Borrowed>() == 0);
+        assert!(align_of::<Borrowed>() == 1);
         assert!(size_of::<Retained>() == 0);
+        assert!(align_of::<Retained>() == 1);
     }
 };
