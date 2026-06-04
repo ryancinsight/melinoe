@@ -285,23 +285,28 @@ The crate is `#![no_std]` by default and brings no global allocator of its own.
 
 ## Safety
 
-All `unsafe` is confined to four points, each preceded by a `// SAFETY:` comment
-discharging its obligation:
+Every `unsafe` block carries a `// SAFETY:` comment discharging its obligation,
+and they fall into a few categories:
 
-1. **Token minting** (`*_scope` functions) — the `for<'brand>` higher-ranked
-   bound makes each brand fresh and invariant, so a minted owning token is
-   provably unique.
-2. **Cell access** (`borrow`/`borrow_mut`) — a live `ReadPermit`/`WritePermit`
-   *is* a borrow of the brand's unique token, so the produced `&T`/`&mut T`
-   cannot alias.
-3. **`from_mut`** — justified by the `#[repr(transparent)]` layout chain
-   `MelinoeCell → UnsafeCell<T> → T`.
-4. **`Send`/`Sync` impls for `MelinoeCell`** — the `GhostCell` bound, with
-   reasoning recorded inline.
+* **Token minting** (`*_scope` functions) — the `for<'brand>` higher-ranked bound
+  makes each brand fresh and invariant, so a minted owning token is provably
+  unique. The ambient gates (`ReentrancyCell`/`GuardedCell`) mint under a runtime
+  re-entrancy flag instead, on `!Sync` thread-confined state.
+* **Cell access** (`borrow`/`borrow_mut`, `CellSliceExt`, `WriterShard`) — a live
+  `ReadPermit`/`WritePermit` (or an owning `&mut [MelinoeCell]`) *is* the
+  exclusion proof, so the produced `&T`/`&mut T`/`&[T]`/`&mut [T]` cannot alias.
+  Zero-copy slice and `from_mut` views rest on the `#[repr(transparent)]` layout
+  chain `MelinoeCell → UnsafeCell<T> → T`.
+* **Conditional atomics** (`BrandedAtomic`) — a `WritePermit` proves exclusivity
+  for plain access; the atomic↔value pointer cast is layout-valid (an atomic has
+  the same size/bit-validity as its value).
+* **`Send`/`Sync` impls** — the `GhostCell` bound, with reasoning recorded inline.
 
 The capability traits are **sealed**: downstream crates cannot forge a permit.
-Soundness boundaries are pinned by `compile_fail` doctests (brand mixing,
-read/write overlap, sending a thread-local token).
+Soundness is pinned two ways: `compile_fail` doctests (brand mixing, read/write
+overlap, sending a thread-local token) and **Miri** (Stacked Borrows +
+data-race detection) over the whole test suite, including the cross-thread
+disjoint-write and conditional-atomic transitions.
 
 ## License
 

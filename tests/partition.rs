@@ -64,6 +64,22 @@ fn shard_read_and_write_capabilities() {
     });
 }
 
+/// A shard is iterable directly via `IntoIterator` for `&`/`&mut` references.
+#[test]
+fn shard_into_iterator() {
+    brand_scope(|_token| {
+        let mut cells: [MelinoeCell<'_, i32>; 4] =
+            core::array::from_fn(|i| MelinoeCell::new(i as i32));
+        let mut shard = WriterShard::new(&mut cells);
+
+        for slot in &mut shard {
+            *slot *= 10;
+        }
+        let sum: i32 = (&shard).into_iter().sum();
+        assert_eq!(sum, 60); // 0 + 10 + 20 + 30
+    });
+}
+
 #[cfg(feature = "std")]
 mod concurrent {
     use super::*;

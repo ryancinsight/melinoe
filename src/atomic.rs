@@ -180,7 +180,7 @@ impl Atomic for AtomicBool {
 
     #[inline]
     fn new_atomic(value: bool) -> Self {
-        AtomicBool::new(value)
+        Self::new(value)
     }
     #[inline]
     fn atomic_load(&self, order: Ordering) -> bool {

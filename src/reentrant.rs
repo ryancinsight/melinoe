@@ -79,9 +79,13 @@ impl ReentrancyCell {
 
     /// Acquire the gate and run `f` with a fresh-brand [`ExclusiveToken`].
     ///
-    /// Returns `Err(`[`Reentered`]`)` without running `f` if the gate is already
-    /// held (a re-entrant call). The flag is cleared when `f` returns, including
-    /// across a panic unwinding through `f`.
+    /// The flag is cleared when `f` returns, including across a panic unwinding
+    /// through `f`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Reentered`] without running `f` if the gate is already held on
+    /// this thread (a re-entrant call) — callers take a fallback path.
     ///
     /// # Examples
     ///
@@ -176,10 +180,14 @@ impl<T: ?Sized> GuardedCell<T> {
         self.active.get()
     }
 
-    /// Run `f` with exclusive `&mut T`, or return [`Reentered`] without running
-    /// it if a borrow is already in progress on this thread.
+    /// Run `f` with exclusive `&mut T`.
     ///
     /// The flag is cleared when `f` returns, including across a panic.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Reentered`] without running `f` if a borrow is already in
+    /// progress on this thread.
     #[inline]
     pub fn enter<R>(&self, f: impl FnOnce(&mut T) -> R) -> Result<R, Reentered> {
         let _reset = Reset::acquire(&self.active)?;
@@ -190,11 +198,15 @@ impl<T: ?Sized> GuardedCell<T> {
         Ok(f(value))
     }
 
-    /// Run `f` with `&mut T` **without** arming the guard, refusing if a guarded
-    /// borrow is already in progress.
+    /// Run `f` with `&mut T` **without** arming the guard.
     ///
-    /// Skips the flag writes that bracket [`enter`](Self::enter), for a hot path where `f` is
-    /// statically known not to re-enter.
+    /// Skips the flag writes that bracket [`enter`](Self::enter), for a hot path
+    /// where `f` is statically known not to re-enter.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Reentered`] without running `f` if a guarded borrow is already
+    /// in progress on this thread.
     ///
     /// # Safety
     ///

@@ -199,6 +199,26 @@ impl<'a, 'brand, T> core::fmt::Debug for WriterShard<'a, 'brand, T> {
     }
 }
 
+impl<'s, 'a, 'brand, T> IntoIterator for &'s WriterShard<'a, 'brand, T> {
+    type Item = &'s T;
+    type IntoIter = core::slice::Iter<'s, T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.as_slice().iter()
+    }
+}
+
+impl<'s, 'a, 'brand, T> IntoIterator for &'s mut WriterShard<'a, 'brand, T> {
+    type Item = &'s mut T;
+    type IntoIter = core::slice::IterMut<'s, T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.as_mut_slice().iter_mut()
+    }
+}
+
 /// Iterator over disjoint [`WriterShard`]s produced by [`WriterShard::chunks`].
 ///
 /// Each yielded shard owns a non-overlapping sub-slice carved off the front of
