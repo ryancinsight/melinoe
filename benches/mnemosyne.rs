@@ -22,7 +22,7 @@ use std::cell::{Cell, RefCell, UnsafeCell};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use melinoe::reentrant::GuardedCell;
-use melinoe::{brand_scope, CellSliceExt, MelinoeCell};
+use melinoe::{brand_scope, CellSliceExt, MelinoeCell, MelinoeRef};
 
 /// Bulk slab initialisation: write every block. The slice view lowers to a
 /// vectorised fill; the per-cell path issues a token-mediated store per block.
@@ -204,11 +204,75 @@ fn bench_guarded_access(c: &mut Criterion) {
     g.finish();
 }
 
+/// A payload large enough that copying it to reach one field is wasteful — the
+/// case `MelinoeRef::map` exists to avoid. Models a slab block header inlined
+/// alongside bulk data.
+#[derive(Clone)]
+struct Block {
+    counter: u64,
+    _bulk: [u64; 63], // 512-byte block, one cache-unfriendly copy to clone
+}
+
+/// Memory-efficiency probe: reach one field of a large branded payload through
+/// the permit. `borrow + map` rewraps a reference (no payload copy); the naive
+/// alternative clones the whole `Block` out to read one `u64`. The win is the
+/// elided 512-byte copy per access, not the access itself (both are bare loads).
+fn bench_projection(c: &mut Criterion) {
+    const ITERS: u64 = 1024;
+    let mut g = c.benchmark_group("projection_1024x");
+    g.throughput(Throughput::Elements(ITERS));
+
+    // Project to the field: zero-copy, carries the brand through.
+    g.bench_function("borrow_map_field", |b| {
+        brand_scope(|token| {
+            let cell = MelinoeCell::new(Block {
+                counter: black_box(7),
+                _bulk: [0; 63],
+            });
+            b.iter(|| {
+                let mut acc = 0u64;
+                for _ in 0..ITERS {
+                    let field: MelinoeRef<'_, '_, u64> =
+                        MelinoeRef::map(cell.borrow(&token), |blk| &blk.counter);
+                    acc = acc.wrapping_add(*field);
+                }
+                black_box(acc)
+            });
+        });
+    });
+
+    // Clone the whole block out to read the same field: a 512-byte copy per hit.
+    g.bench_function("clone_then_field", |b| {
+        brand_scope(|token| {
+            let cell = MelinoeCell::new(Block {
+                counter: black_box(7),
+                _bulk: [0; 63],
+            });
+            b.iter(|| {
+                let mut acc = 0u64;
+                for _ in 0..ITERS {
+                    let owned: Block = cell.borrow(&token).clone();
+                    // Force the full block to materialise: without this the
+                    // optimizer elides the dead `_bulk` copy (DCE) and the clone
+                    // collapses to a single field load. In real code the clone is
+                    // performed precisely because the owned value is needed, so
+                    // observing it here measures the copy the projection avoids.
+                    acc = acc.wrapping_add(black_box(&owned).counter);
+                }
+                black_box(acc)
+            });
+        });
+    });
+
+    g.finish();
+}
+
 criterion_group!(
     benches,
     bench_slab_fill,
     bench_slab_scan,
     bench_cow_escape,
-    bench_guarded_access
+    bench_guarded_access,
+    bench_projection
 );
 criterion_main!(benches);

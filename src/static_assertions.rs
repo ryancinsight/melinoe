@@ -36,6 +36,12 @@ const _: () = {
     assert!(size_of::<Option<MelinoeRef<'static, 'static, u64>>>() == size_of::<&u64>());
     assert!(size_of::<Option<MelinoeMut<'static, 'static, u64>>>() == size_of::<&mut u64>());
 
+    // ── Projection (`map`/`map_split`) only rewraps a reference, so a guard
+    //    projected onto a field of any payload stays exactly pointer-sized with
+    //    its niche intact — the zero-cost claim holds across projection. ──
+    assert!(size_of::<MelinoeRef<'static, 'static, u8>>() == size_of::<&u8>());
+    assert!(size_of::<MelinoeMut<'static, 'static, u8>>() == size_of::<&mut u8>());
+
     // ── A writer shard is exactly its underlying `&mut [MelinoeCell]` slice
     //    reference (a fat pointer): the partition capability adds no footprint. ──
     assert!(
