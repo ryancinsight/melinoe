@@ -330,8 +330,9 @@ Melinoe is intentionally orthogonal to allocation:
   already-zero-cost per-cell path while adding slice ergonomics.
 * **Borrow-or-retain at the boundary.** `CellCowExt::borrow_cow_with` returns a
   zero-copy `Cow::Borrowed` under the `Borrowed` ZST policy or clones exactly
-  once under `Retained`, so retention is explicit without infecting the core
-  access path with ownership branching.
+  once under `Retained`; `borrow_cow` / `retain_cow` are the direct branch-free
+  forms for common static cases. Retention stays explicit without infecting the
+  core access path with ownership branching.
 * **Upgrade the token model.** Mnemosyne's `AllocatorToken` is a single `!Send`
   token with runtime `assert_ne!` distinctness checks in `borrow_mut_2/3`.
   Melinoe replaces those with the compile-time-disjoint [`WriterShard`](src/region/mod.rs)

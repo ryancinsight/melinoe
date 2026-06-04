@@ -13,6 +13,8 @@ All notable changes to `melinoe` are documented here. The format follows
   zero-copy `Cow::Borrowed`; `retain_cow` clones the branded slice exactly once.
 - Value-semantic tests for direct borrowed pointer identity and retained owned
   copy independence.
+- Mnemosyne `cow_escape` benchmark rows now exercise the direct `borrow_cow` /
+  `retain_cow` methods for the static zero-copy and retain-once cases.
 
 ## [0.4.0] — 2026-06-04
 

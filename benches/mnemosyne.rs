@@ -21,10 +21,7 @@ use std::cell::{Cell, RefCell, UnsafeCell};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use melinoe::reentrant::GuardedCell;
-use melinoe::{
-    brand_scope, Borrowed, CellCowExt, CellSliceExt, MelinoeCell, MelinoeRef, RetainDecision,
-    Retained,
-};
+use melinoe::{brand_scope, CellCowExt, CellSliceExt, MelinoeCell, MelinoeRef, RetainDecision};
 
 /// Bulk slab initialisation: write every block. The slice view lowers to a
 /// vectorised fill; the per-cell path issues a token-mediated store per block.
@@ -133,23 +130,23 @@ fn bench_cow_escape(c: &mut Criterion) {
         });
     });
 
-    g.bench_function("cow_static_borrow_policy", |b| {
+    g.bench_function("cow_direct_borrow", |b| {
         brand_scope(|token| {
             let cells: Vec<MelinoeCell<'_, u8>> =
                 (0..N).map(|i| MelinoeCell::new(i as u8)).collect();
             b.iter(|| {
-                let buf = cells.borrow_cow_with(&token, Borrowed);
+                let buf = cells.borrow_cow(&token);
                 black_box(buf.iter().fold(0u8, |a, x| a.wrapping_add(*x)))
             });
         });
     });
 
-    g.bench_function("cow_static_retain_policy", |b| {
+    g.bench_function("cow_direct_retain", |b| {
         brand_scope(|token| {
             let cells: Vec<MelinoeCell<'_, u8>> =
                 (0..N).map(|i| MelinoeCell::new(i as u8)).collect();
             b.iter(|| {
-                let buf = cells.borrow_cow_with(&token, Retained);
+                let buf = cells.retain_cow(&token);
                 black_box(buf.iter().fold(0u8, |a, x| a.wrapping_add(*x)))
             });
         });

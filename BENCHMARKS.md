@@ -193,8 +193,8 @@ speedup claim.
 |---------------------------------------|------|--|
 | `always_owned` (clone every call)     | 66.7 ns | 1.00× |
 | `cow_borrow_mostly` (clone 1/8 calls) | 33.7 ns | **1.97× faster** |
-| `cow_static_borrow_policy` (`Borrowed` ZST) | measure locally | zero-copy path |
-| `cow_static_retain_policy` (`Retained` ZST) | measure locally | clone-once path |
+| `cow_direct_borrow` | measure locally | zero-copy path |
+| `cow_direct_retain` | measure locally | clone-once path |
 
 `Cow` more than halves cost by borrowing the branded slab zero-copy on the common
 transient path and cloning only when a buffer must outlive the brand scope. It
@@ -202,7 +202,8 @@ lives at the ownership boundary by design: inside the zero-cost access core a
 branded borrow is *always* zero-copy, so a `Cow` there would be a degenerate
 always-`Borrowed`. `CellCowExt` makes the boundary explicit: ZST policies
 monomorphize static retain decisions, while `RetainDecision` handles runtime
-escape decisions.
+escape decisions. `borrow_cow` and `retain_cow` are the direct branch-free
+forms for the common static cases.
 
 ### Ambient guarded interior mutability (`guarded_access_4096x`)
 
