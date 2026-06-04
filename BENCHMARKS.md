@@ -256,10 +256,27 @@ per-thread state, so the dense (8 B) layout is also the fast one. Adding a padde
 cell type would be the wrong fix — it would trade away the memory efficiency the
 single-writer proof already buys for free.
 
+## Zero-cost, at the machine-code-identity tier (`examples/codegen.rs`)
+
+Timings show no measurable overhead; the codegen probe shows there is literally
+*no code*. Compiled at `--release`, every branded access path emits machine code
+identical to its raw equivalent — the linker folds them into one symbol:
+
+| Branded path | Folds with | Emitted code |
+|--------------|------------|--------------|
+| `MelinoeCell::borrow_mut` write | `BrandedAtomic::store_exclusive` | one plain `movq` store |
+| `BrandedAtomic::fetch_add` | raw `AtomicU64::fetch_add` | one `lock xaddq` |
+| `CellSliceExt::borrow_slice` sum | raw `&[u64]` sum | identical vectorised reduction |
+
+Branding, permits, and phantom markers leave no trace. Run
+`cargo rustc --release --example codegen -- --emit asm` to reproduce.
+
 ## Interpretation
 
 * Melinoe access is a bare load/store: zero synchronization instructions, and
   fully transparent to the optimizer (hoisting, vectorization, constant folding).
+  The codegen probe above proves this at the strongest tier — the branded code
+  and the raw code are *the same bytes*.
 * The runtime primitives each pay for their dynamic guarantee on every access —
   an atomic RMW (`Atomic`, `RwLock`), or a lock acquire/release (`Mutex`).
 * Melinoe buys this by requiring the exclusion to be *statically provable*. Where

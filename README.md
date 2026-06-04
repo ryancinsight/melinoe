@@ -244,10 +244,10 @@ Verified data-race-free under Miri (Stacked Borrows + data-race detection).
 
 Melinoe is intentionally orthogonal to allocation:
 
-* **Brand a heap in place.** `MelinoeCell::from_mut` reborrows an existing
-  `&mut T` as `&mut MelinoeCell<'brand, T>` at zero cost (the cell is
-  `#[repr(transparent)]`), so Mnemosyne's `BrandedHeap` storage can be governed
-  by a Melinoe token without copying or wrapping.
+* **Brand storage in place.** `MelinoeCell::from_mut` (and `BrandedAtomic::from_mut`)
+  reborrow an existing `&mut T` / `&mut AtomicU64` as a branded view at zero cost
+  (both are `#[repr(transparent)]`), so Mnemosyne's `BrandedHeap` storage or an
+  existing counter can be governed by a Melinoe token without copying or wrapping.
 * **Bulk slab access, zero-copy.** [`CellSliceExt`](src/cell/slice.rs) views a
   whole `[MelinoeCell<'brand, T>]` slab as a native `&[T]` / `&mut [T]` once a
   permit is presented — `slab.borrow_slice_mut(&mut token).fill(0)` for

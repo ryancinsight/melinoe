@@ -74,6 +74,19 @@ fn compare_exchange_in_shared_phase() {
 }
 
 #[test]
+fn from_mut_brands_existing_atomic_in_place() {
+    use core::sync::atomic::AtomicU64;
+    let mut raw = AtomicU64::new(40);
+    brand_scope(|mut token| {
+        let branded: &mut BrandedAtomic<'_, AtomicU64> = BrandedAtomic::from_mut(&mut raw);
+        branded.with_exclusive(&mut token, |v| *v += 2);
+        assert_eq!(branded.load(token.share(), Ordering::Relaxed), 42);
+    });
+    // The original atomic carries the result — no copy was made.
+    assert_eq!(raw.load(Ordering::Relaxed), 42);
+}
+
+#[test]
 fn bool_flag_and_get_mut() {
     brand_scope(|mut token| {
         let flag: BrandedAtomic<'_, core::sync::atomic::AtomicBool> = BrandedAtomic::new(false);

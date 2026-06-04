@@ -232,6 +232,19 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
         }
     }
 
+    /// Reborrow an existing atomic as a branded atomic, in place — zero-copy.
+    ///
+    /// `#[repr(transparent)]` makes this a no-op cast: the same atomic, now gated
+    /// by `'brand`'s phase discipline. Lets an allocator brand a counter it
+    /// already owns (e.g. a field of a larger struct) without moving it.
+    #[inline]
+    #[must_use]
+    pub fn from_mut(atomic: &mut A) -> &mut Self {
+        // SAFETY: `Self` is `#[repr(transparent)]` over `A`; the unique `&mut A`
+        // becomes a unique `&mut Self`, introducing no aliasing.
+        unsafe { &mut *(atomic as *mut A as *mut Self) }
+    }
+
     // ───────────────────────── exclusive phase (plain) ─────────────────────────
 
     /// Run `f` with plain, non-atomic `&mut` access, under a proof of exclusivity.
