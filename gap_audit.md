@@ -83,7 +83,10 @@ atomic APIs while preserving the shared-phase token proof; `as_atomic_mut` and
 `into_atomic` cover unique/owned extraction. Latest patch routes
 `BrandedAtomic::*_with` methods directly through the sealed atomic mediation
 surface with `AtomicOrder` associated constants, avoiding runtime-ordering
-wrapper calls in static policy monomorphs.
+wrapper calls in static policy monomorphs. Latest Cow refinement routes direct
+`borrow_cow` / `retain_cow`, generic-policy `borrow_cow_with`, and runtime
+`borrow_cow_if` through the same sealed `Borrowed` / `Retained` policy bodies,
+so clone/no-clone behavior has one implementation source.
 
 ## Residual risk / non-goals
 

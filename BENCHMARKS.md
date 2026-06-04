@@ -203,7 +203,9 @@ branded borrow is *always* zero-copy, so a `Cow` there would be a degenerate
 always-`Borrowed`. `CellCowExt` makes the boundary explicit: ZST policies
 monomorphize static retain decisions, while `RetainDecision` handles runtime
 escape decisions. `borrow_cow` and `retain_cow` are the direct branch-free
-forms for the common static cases.
+forms for the common static cases. All entry points route through the sealed
+`Borrowed` / `Retained` policy bodies, keeping clone/no-clone behavior in one
+monomorphized implementation.
 
 ### Ambient guarded interior mutability (`guarded_access_4096x`)
 

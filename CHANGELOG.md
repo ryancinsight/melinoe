@@ -20,6 +20,9 @@ All notable changes to `melinoe` are documented here. The format follows
 - `BrandedAtomic::*_with` methods now call the sealed atomic mediation surface
   directly with ZST ordering associated constants instead of delegating through
   runtime-`Ordering` wrapper methods.
+- `CellCowExt` direct, generic-policy, and runtime-decision entry points now
+  share the sealed `Borrowed` / `Retained` policy bodies as their single
+  clone/no-clone implementation source.
 
 ## [0.4.0] — 2026-06-04
 

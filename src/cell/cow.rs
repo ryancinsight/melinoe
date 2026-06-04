@@ -20,6 +20,7 @@ mod sealed {
 /// contains exactly one clone path.
 pub trait CowPolicy: sealed::Sealed + Copy {
     /// Build the boundary `Cow` from the branded slice view.
+    #[must_use]
     fn cow<T: Clone>(slice: &[T]) -> Cow<'_, [T]>;
 }
 
@@ -59,6 +60,16 @@ pub enum RetainDecision {
     Borrow,
     /// Return `Cow::Owned`.
     Retain,
+}
+
+impl RetainDecision {
+    #[inline]
+    fn cow<T: Clone>(self, slice: &[T]) -> Cow<'_, [T]> {
+        match self {
+            Self::Borrow => Borrowed::cow(slice),
+            Self::Retain => Retained::cow(slice),
+        }
+    }
 }
 
 /// Conditional `Cow` views over `[MelinoeCell<'brand, T>]`, gated by a read
@@ -101,7 +112,7 @@ impl<'brand, T: Clone> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
     where
         P: ReadPermit<'brand> + 'a,
     {
-        Cow::Borrowed(self.borrow_slice(permit))
+        Borrowed::cow(self.borrow_slice(permit))
     }
 
     #[inline]
@@ -109,7 +120,7 @@ impl<'brand, T: Clone> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
     where
         P: ReadPermit<'brand> + 'a,
     {
-        Cow::Owned(self.borrow_slice(permit).to_vec())
+        Retained::cow(self.borrow_slice(permit))
     }
 
     #[inline]
@@ -128,9 +139,6 @@ impl<'brand, T: Clone> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
         P: ReadPermit<'brand> + 'a,
     {
         let slice = self.borrow_slice(permit);
-        match decision {
-            RetainDecision::Borrow => Cow::Borrowed(slice),
-            RetainDecision::Retain => Cow::Owned(slice.to_vec()),
-        }
+        decision.cow(slice)
     }
 }

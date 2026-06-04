@@ -10,6 +10,8 @@ Target version: 0.5.0
   and read-permit-gated raw atomic interop.
 - [x] [patch] Route `BrandedAtomic::*_with` ZST-ordering methods directly through
   associated constants and the sealed atomic mediation surface.
+- [x] [patch] Consolidate direct, ZST-policy, and runtime-decision Cow entry
+  points through the sealed `Borrowed` / `Retained` policy bodies.
 - [x] [minor] Add `CellCowExt` conditional `Cow` boundary API with `Borrowed` /
   `Retained` ZST policies and `RetainDecision` runtime policy.
 - [x] [minor] Add `AtomicOrder` ZST policies (`Relaxed`, `AcqRel`, `SeqCst`)

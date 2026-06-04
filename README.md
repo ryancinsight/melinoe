@@ -109,7 +109,8 @@ arity-specific `brand_scopeN`/`CellN` variants:
   ordering contracts do not route through the runtime-`Ordering` API.
 * **Conditional `Cow`** — `CellCowExt` places borrow-or-retain decisions at the
   ownership boundary. `Borrowed` and `Retained` are ZST policies for static
-  retain decisions; `RetainDecision` covers data-dependent retention.
+  retain decisions; `RetainDecision` covers data-dependent retention by routing
+  to the same sealed policy bodies.
 
 ## Quick start
 
@@ -334,8 +335,9 @@ Melinoe is intentionally orthogonal to allocation:
 * **Borrow-or-retain at the boundary.** `CellCowExt::borrow_cow_with` returns a
   zero-copy `Cow::Borrowed` under the `Borrowed` ZST policy or clones exactly
   once under `Retained`; `borrow_cow` / `retain_cow` are the direct branch-free
-  forms for common static cases. Retention stays explicit without infecting the
-  core access path with ownership branching.
+  forms for common static cases. All Cow entry points share the sealed policy
+  bodies, so retention stays explicit without infecting the core access path
+  with ownership branching.
 * **Upgrade the token model.** Mnemosyne's `AllocatorToken` is a single `!Send`
   token with runtime `assert_ne!` distinctness checks in `borrow_mut_2/3`.
   Melinoe replaces those with the compile-time-disjoint [`WriterShard`](src/region/mod.rs)

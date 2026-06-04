@@ -56,7 +56,8 @@
 //!   [`SeqCst`] are ZST ordering policies for monomorphized atomic call sites.
 //! * [`CellCowExt`] — conditional `Cow` at the ownership boundary: [`Borrowed`]
 //!   returns a zero-copy borrowed slice, [`Retained`] clones exactly once, and
-//!   [`RetainDecision`] covers data-dependent retain decisions.
+//!   [`RetainDecision`] covers data-dependent retain decisions through the same
+//!   sealed policy bodies.
 //!
 //! ## Quick start
 //!
