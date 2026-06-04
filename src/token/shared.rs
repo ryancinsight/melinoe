@@ -24,6 +24,7 @@ use super::capability::ReadPermit;
 /// carry the immutable-borrow window, not the concrete owning token's type—so
 /// the same token type serves every owner family. It is `Send + Sync`, enabling
 /// concurrent reads of branded cells across threads.
+#[derive(Clone, Copy)]
 pub struct SharedReadToken<'a, 'brand> {
     _invariant: InvariantLifetime<'brand>,
     _window: PhantomData<&'a ()>,
@@ -48,15 +49,6 @@ impl<'a, 'brand> SharedReadToken<'a, 'brand> {
         }
     }
 }
-
-impl<'a, 'brand> Clone for SharedReadToken<'a, 'brand> {
-    #[inline]
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<'a, 'brand> Copy for SharedReadToken<'a, 'brand> {}
 
 impl<'a, 'brand> fmt::Debug for SharedReadToken<'a, 'brand> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

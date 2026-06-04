@@ -39,7 +39,7 @@ impl<'a, 'brand, T: ?Sized> MelinoeRef<'a, 'brand, T> {
     /// Consume the guard, returning the underlying shared reference.
     #[inline]
     #[must_use]
-    pub fn into_ref(self) -> &'a T {
+    pub const fn into_ref(self) -> &'a T {
         self.value
     }
 }

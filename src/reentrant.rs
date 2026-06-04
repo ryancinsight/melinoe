@@ -108,12 +108,8 @@ impl ReentrancyCell {
         &self,
         f: impl for<'brand> FnOnce(ExclusiveToken<'brand>) -> R,
     ) -> Result<R, Reentered> {
-        if self.active.get() {
-            return Err(Reentered);
-        }
-        self.active.set(true);
-        let _reset = Reset(&self.active);
-        // SAFETY: the flag (just set, and re-checked by any nested `enter`)
+        let _reset = Reset::acquire(&self.active)?;
+        // SAFETY: the flag (set by `acquire`, re-checked by any nested `enter`)
         // guarantees no other token minted by this cell is live, and `for<'brand>`
         // makes the brand fresh and non-escaping — so this is the unique
         // `ExclusiveToken` for its brand, satisfying `new_unchecked`.
@@ -186,14 +182,10 @@ impl<T: ?Sized> GuardedCell<T> {
     /// The flag is cleared when `f` returns, including across a panic.
     #[inline]
     pub fn enter<R>(&self, f: impl FnOnce(&mut T) -> R) -> Result<R, Reentered> {
-        if self.active.get() {
-            return Err(Reentered);
-        }
-        self.active.set(true);
-        let _reset = Reset(&self.active);
-        // SAFETY: the flag (just set, re-checked by any nested `enter`) plus the
-        // cell's `!Sync` thread confinement guarantee no other `&mut T` to this
-        // value is live, so this borrow is unaliased for the call.
+        let _reset = Reset::acquire(&self.active)?;
+        // SAFETY: the flag (set by `acquire`, re-checked by any nested `enter`)
+        // plus the cell's `!Sync` thread confinement guarantee no other `&mut T`
+        // to this value is live, so this borrow is unaliased for the call.
         let value = unsafe { &mut *self.value.get() };
         Ok(f(value))
     }
@@ -226,7 +218,7 @@ impl<T: ?Sized> GuardedCell<T> {
     /// [`enter`](Self::enter); prefer the safe methods.
     #[inline]
     #[must_use]
-    pub fn as_ptr(&self) -> *mut T {
+    pub const fn as_ptr(&self) -> *mut T {
         self.value.get()
     }
 
@@ -241,8 +233,23 @@ impl<T: ?Sized> GuardedCell<T> {
 // deliberately not `Sync` (it holds `Cell`/`UnsafeCell`): it is a per-thread gate.
 unsafe impl<T: ?Sized + Send> Send for GuardedCell<T> {}
 
-/// Clears the gate flag on scope exit, including panic unwind.
+/// Holds a gate flag `true` for its lifetime and clears it on scope exit,
+/// including a panic unwind. The single point where the re-entrancy flag is
+/// acquired and released, shared by both gate types.
 struct Reset<'a>(&'a Cell<bool>);
+
+impl<'a> Reset<'a> {
+    /// Arm the gate, returning the clearing guard, or [`Reentered`] if it is
+    /// already held.
+    #[inline]
+    fn acquire(active: &'a Cell<bool>) -> Result<Self, Reentered> {
+        if active.get() {
+            return Err(Reentered);
+        }
+        active.set(true);
+        Ok(Self(active))
+    }
+}
 
 impl Drop for Reset<'_> {
     #[inline]

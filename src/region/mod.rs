@@ -98,12 +98,13 @@ impl<'a, 'brand, T> WriterShard<'a, 'brand, T> {
     #[inline]
     #[must_use]
     pub fn as_slice(&self) -> &[T] {
-        let ptr = self.cells as *const [MelinoeCell<'brand, T>] as *const [T];
-        // SAFETY: identical layout (transparent chain above); the shared `&self`
-        // borrow excludes `&mut self`—the only source of a `&mut T` here—and the
-        // shard's `&mut [MelinoeCell]` ownership excludes all external/token
-        // access, so no `&mut T` to these cells exists while the `&[T]` lives.
-        unsafe { &*ptr }
+        let ptr = MelinoeCell::slice_as_unsafe_cell(self.cells).get();
+        // SAFETY: the shared `&self` borrow excludes `&mut self`—the only source
+        // of a `&mut T` here—and the shard's `&mut [MelinoeCell]` ownership
+        // excludes all external/token access, so no `&mut T` to these cells exists
+        // while the `&[T]` lives. The pointer carries whole-region provenance via
+        // `UnsafeCell::get`.
+        unsafe { &*(ptr as *const [T]) }
     }
 
     /// View the partition as a plain exclusive slice (the higher capability;
@@ -113,9 +114,10 @@ impl<'a, 'brand, T> WriterShard<'a, 'brand, T> {
     #[inline]
     #[must_use]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        let ptr = self.cells as *mut [MelinoeCell<'brand, T>] as *mut [T];
-        // SAFETY: identical layout; `&mut self` grants exclusive access to the
-        // cells, so the `&mut [T]` is unaliased.
+        let ptr = MelinoeCell::slice_as_unsafe_cell(self.cells).get();
+        // SAFETY: `&mut self` grants exclusive access to the cells, so the
+        // `&mut [T]` is unaliased; `UnsafeCell::get` supplies the interior-mutable
+        // provenance over the whole region.
         unsafe { &mut *ptr }
     }
 
