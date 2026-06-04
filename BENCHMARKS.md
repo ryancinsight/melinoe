@@ -191,10 +191,12 @@ speedup claim.
 
 | `cow_escape` (4k u8, 1-in-8 must own) | time | |
 |---------------------------------------|------|--|
-| `always_owned` (clone every call)     | 66.7 ns | 1.00× |
-| `cow_borrow_mostly` (clone 1/8 calls) | 33.7 ns | **1.97× faster** |
-| `cow_direct_borrow` | measure locally | zero-copy path |
-| `cow_direct_retain` | measure locally | clone-once path |
+| `always_owned` (clone every call)     | 67.0 ns | 1.00× |
+| `cow_borrow_mostly` (clone 1/8 calls) | 36.7 ns | **1.82× faster** |
+| `cow_direct_borrow` | 29.6 ns | zero-copy direct path |
+| `cow_policy_borrow` | 29.5 ns | zero-copy ZST-policy path |
+| `cow_direct_retain` | 88.5 ns | clone-once direct path |
+| `cow_policy_retain` | 86.1 ns | clone-once ZST-policy path |
 
 `Cow` more than halves cost by borrowing the branded slab zero-copy on the common
 transient path and cloning only when a buffer must outlive the brand scope. It
@@ -205,7 +207,9 @@ monomorphize static retain decisions, while `RetainDecision` handles runtime
 escape decisions. `borrow_cow` and `retain_cow` are the direct branch-free
 forms for the common static cases. All entry points route through the sealed
 `Borrowed` / `Retained` policy bodies, keeping clone/no-clone behavior in one
-monomorphized implementation.
+monomorphized implementation. The direct and generic-policy rows are within
+local run noise for both borrow and retain paths, which is the benchmark-level
+evidence for the consolidation.
 
 ### Ambient guarded interior mutability (`guarded_access_4096x`)
 
@@ -248,9 +252,10 @@ yet need.
 
 | Op | `BrandedAtomic` | raw `AtomicU64` |
 |----|----------------:|----------------:|
-| `fetch_add` | 24.9 µs | 25.0 µs |
-| `fetch_add_with(Relaxed)` | measure locally | same instruction contract |
-| `compare_exchange` | 29.2 µs | 28.7 µs |
+| `fetch_add` | 25.0 µs | 25.2 µs |
+| `fetch_add_with(Relaxed)` | 25.2 µs | 25.2 µs |
+| `as_atomic(...).fetch_add` | 25.1 µs | 25.2 µs |
+| `compare_exchange_with(Relaxed)` | 29.1 µs | 29.0 µs |
 
 **Parity** — `BrandedAtomic` is a `#[repr(transparent)]` zero-cost wrapper on the
 atomic side; it adds no overhead when you *do* need atomics. So the cell is cheap

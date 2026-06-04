@@ -244,7 +244,9 @@ interop with APIs that already operate on `Atomic*`.
 
 Full methodology, all tables (five Criterion harnesses), and the honest caveats
 are in [`BENCHMARKS.md`](BENCHMARKS.md). Ratios are the signal; absolute figures
-are hardware-dependent. Reproduce with `cargo bench`.
+are hardware-dependent. The benchmark suite includes direct-vs-ZST `Cow` policy
+rows and `BrandedAtomic::as_atomic` raw-interop rows. Reproduce with
+`cargo bench`.
 
 ## Concurrent writes via disjoint shards
 

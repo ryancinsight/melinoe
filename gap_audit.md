@@ -86,7 +86,10 @@ surface with `AtomicOrder` associated constants, avoiding runtime-ordering
 wrapper calls in static policy monomorphs. Latest Cow refinement routes direct
 `borrow_cow` / `retain_cow`, generic-policy `borrow_cow_with`, and runtime
 `borrow_cow_if` through the same sealed `Borrowed` / `Retained` policy bodies,
-so clone/no-clone behavior has one implementation source.
+so clone/no-clone behavior has one implementation source. Benchmark expansion
+adds direct-vs-ZST-policy Cow rows and read-permit-gated `as_atomic` interop;
+targeted Criterion reruns show static Cow policy rows match direct methods
+within local run noise and shared atomic interop matches raw atomic throughput.
 
 ## Residual risk / non-goals
 

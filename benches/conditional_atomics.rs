@@ -78,6 +78,20 @@ fn bench_shared_atomic(c: &mut Criterion) {
         });
     });
 
+    g.bench_function("branded_as_atomic_fetch_add", |b| {
+        brand_scope(|token| {
+            let counter: BrandedAtomic<'_, AtomicU64> = BrandedAtomic::new(0);
+            let snap = token.share();
+            b.iter(|| {
+                let raw = counter.as_atomic(snap);
+                for _ in 0..ITERS {
+                    raw.fetch_add(black_box(1), Ordering::Relaxed);
+                }
+                black_box(raw.load(Ordering::Relaxed))
+            });
+        });
+    });
+
     g.bench_function("raw_fetch_add", |b| {
         let counter = AtomicU64::new(0);
         b.iter(|| {

@@ -23,6 +23,10 @@ All notable changes to `melinoe` are documented here. The format follows
 - `CellCowExt` direct, generic-policy, and runtime-decision entry points now
   share the sealed `Borrowed` / `Retained` policy bodies as their single
   clone/no-clone implementation source.
+- Mnemosyne benchmarks now include generic ZST-policy Cow rows
+  (`cow_policy_borrow`, `cow_policy_retain`) alongside direct Cow methods, and
+  conditional-atomic benchmarks now include read-permit-gated raw interop through
+  `BrandedAtomic::as_atomic`.
 
 ## [0.4.0] — 2026-06-04
 

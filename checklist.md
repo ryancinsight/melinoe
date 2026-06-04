@@ -12,6 +12,9 @@ Target version: 0.5.0
   associated constants and the sealed atomic mediation surface.
 - [x] [patch] Consolidate direct, ZST-policy, and runtime-decision Cow entry
   points through the sealed `Borrowed` / `Retained` policy bodies.
+- [x] [patch] Expand benchmarks for generic ZST-policy Cow paths and
+  read-permit-gated `BrandedAtomic::as_atomic` raw interop; rerun targeted
+  Criterion groups and update `BENCHMARKS.md`.
 - [x] [minor] Add `CellCowExt` conditional `Cow` boundary API with `Borrowed` /
   `Retained` ZST policies and `RetainDecision` runtime policy.
 - [x] [minor] Add `AtomicOrder` ZST policies (`Relaxed`, `AcqRel`, `SeqCst`)
