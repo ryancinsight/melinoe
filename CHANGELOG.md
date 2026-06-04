@@ -4,6 +4,36 @@ All notable changes to `melinoe` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-06-04
+
+### Added
+
+- `CellCowExt` plus `Borrowed`, `Retained`, and `RetainDecision` for conditional
+  `Cow` at branded slice ownership boundaries. Static retain decisions are ZST
+  policies; data-dependent retain decisions use the explicit runtime enum.
+- `AtomicOrder` plus `Relaxed`, `AcqRel`, and `SeqCst` ZST ordering policies for
+  monomorphized `BrandedAtomic` shared-phase operations.
+- `BrandedAtomic::*_with` methods for compile-time ordering policies:
+  `load_with`, `store_with`, `swap_with`, `compare_exchange_with`,
+  `fetch_add_with`, `fetch_sub_with`, `fetch_and_with`, and `fetch_or_with`.
+- Zero-copy raw atomic interop on `BrandedAtomic`: `as_atomic` (shared phase,
+  read-permit gated), `as_atomic_mut` (unique wrapper access), and `into_atomic`
+  (owned extraction).
+- Value-semantic tests for conditional `Cow` borrowed/retained paths and ZST
+  atomic ordering policies.
+- Benchmark rows for static `Cow` policies and ZST atomic ordering calls.
+
+### Changed
+
+- `AtomicOrder` is sealed; only the crate's audited ZST ordering policies can
+  implement it.
+- Static `Cow` policy dispatch is implementation-driven rather than a const-bool
+  branch: `Borrowed` contains no clone path, `Retained` contains exactly one
+  clone path.
+- `BrandedAtomic::get_mut` and `BrandedAtomic::into_inner` now route through the
+  standard atomic `get_mut` / `into_inner` APIs, removing avoidable unsafe from
+  unique/owned access.
+
 ## [0.3.0] — 2026-06-04
 
 ### Added
@@ -76,6 +106,7 @@ All notable changes to `melinoe` are documented here. The format follows
   interior mutability, `CellSliceExt` zero-copy slice views, and `WriterShard`
   disjoint concurrent-write partitioning.
 
+[0.4.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.4.0
 [0.3.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.3.0
 [0.2.1]: https://github.com/ryancinsight/melinoe/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.2.0

@@ -52,7 +52,11 @@
 //! * [`atomic::BrandedAtomic`] — *conditional atomics*: plain non-atomic access
 //!   under a [`WritePermit`] (proven-exclusive phase), atomic access under a
 //!   [`ReadPermit`] (shared phase). The capability selects the cost, so you pay
-//!   for synchronization only while sharing — the write-side analogue of `Cow`.
+//!   for synchronization only while sharing. [`Relaxed`], [`AcqRel`], and
+//!   [`SeqCst`] are ZST ordering policies for monomorphized atomic call sites.
+//! * [`CellCowExt`] — conditional `Cow` at the ownership boundary: [`Borrowed`]
+//!   returns a zero-copy borrowed slice, [`Retained`] clones exactly once, and
+//!   [`RetainDecision`] covers data-dependent retain decisions.
 //!
 //! ## Quick start
 //!
@@ -89,6 +93,41 @@
 //!     *b = 2;
 //!     drop((a, b));
 //!     assert_eq!(*cell.borrow(&token), (1, 2));
+//! });
+//! ```
+//!
+//! At an ownership boundary, [`CellCowExt`] makes the retain decision explicit.
+//! A ZST policy gives compile-time branch elimination when the decision is
+//! static:
+//!
+//! ```
+//! #[cfg(feature = "alloc")]
+//! {
+//! use std::borrow::Cow;
+//! use melinoe::{brand_scope, Borrowed, CellCowExt, MelinoeCell, Retained};
+//!
+//! brand_scope(|token| {
+//!     let cells: Vec<MelinoeCell<'_, u8>> = (0..4).map(MelinoeCell::new).collect();
+//!     assert!(matches!(cells.borrow_cow_with(&token, Borrowed), Cow::Borrowed(_)));
+//!     assert!(matches!(cells.borrow_cow_with(&token, Retained), Cow::Owned(_)));
+//! });
+//! }
+//! ```
+//!
+//! Conditional atomics use the same idea on the synchronization side: a write
+//! permit selects plain access, while a read permit selects atomic access. ZST
+//! ordering policies keep common ordering contracts at the type level:
+//!
+//! ```
+//! use core::sync::atomic::AtomicU64;
+//! use melinoe::{brand_scope, BrandedAtomic, Relaxed};
+//!
+//! brand_scope(|mut token| {
+//!     let counter: BrandedAtomic<'_, AtomicU64> = BrandedAtomic::new(0);
+//!     counter.store_exclusive(10, &mut token);
+//!     let snap = token.share();
+//!     assert_eq!(counter.fetch_add_with(5, snap, Relaxed), 10);
+//!     assert_eq!(counter.load_with(snap, Relaxed), 15);
 //! });
 //! ```
 //!
@@ -184,7 +223,10 @@ mod readme_doctests {
 mod static_assertions;
 
 #[doc(inline)]
-pub use atomic::BrandedAtomic;
+pub use atomic::{AcqRel, AtomicOrder, BrandedAtomic, Relaxed, SeqCst};
+#[doc(inline)]
+#[cfg(feature = "alloc")]
+pub use cell::{Borrowed, CellCowExt, CowPolicy, RetainDecision, Retained};
 #[doc(inline)]
 pub use cell::{CellSliceExt, MelinoeCell, MelinoeMut, MelinoeRef};
 #[doc(inline)]

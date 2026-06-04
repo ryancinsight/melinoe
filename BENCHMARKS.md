@@ -193,12 +193,16 @@ speedup claim.
 |---------------------------------------|------|--|
 | `always_owned` (clone every call)     | 66.7 ns | 1.00× |
 | `cow_borrow_mostly` (clone 1/8 calls) | 33.7 ns | **1.97× faster** |
+| `cow_static_borrow_policy` (`Borrowed` ZST) | measure locally | zero-copy path |
+| `cow_static_retain_policy` (`Retained` ZST) | measure locally | clone-once path |
 
 `Cow` more than halves cost by borrowing the branded slab zero-copy on the common
 transient path and cloning only when a buffer must outlive the brand scope. It
 lives at the ownership boundary by design: inside the zero-cost access core a
 branded borrow is *always* zero-copy, so a `Cow` there would be a degenerate
-always-`Borrowed`.
+always-`Borrowed`. `CellCowExt` makes the boundary explicit: ZST policies
+monomorphize static retain decisions, while `RetainDecision` handles runtime
+escape decisions.
 
 ### Ambient guarded interior mutability (`guarded_access_4096x`)
 
@@ -242,11 +246,14 @@ yet need.
 | Op | `BrandedAtomic` | raw `AtomicU64` |
 |----|----------------:|----------------:|
 | `fetch_add` | 24.9 µs | 25.0 µs |
+| `fetch_add_with(Relaxed)` | measure locally | same instruction contract |
 | `compare_exchange` | 29.2 µs | 28.7 µs |
 
 **Parity** — `BrandedAtomic` is a `#[repr(transparent)]` zero-cost wrapper on the
 atomic side; it adds no overhead when you *do* need atomics. So the cell is cheap
-when exclusive and free when shared.
+when exclusive and free when shared. `Relaxed`, `AcqRel`, and `SeqCst` are ZST
+ordering policies for monomorphized ordering contracts; runtime `Ordering`
+parameters remain available for data-dependent ordering selection.
 
 **Mixed phase** — 2048 private plain bumps then 2048 shared atomic ops, vs doing
 all 4096 atomically (`mixed_phase_build2k_publish2k`):

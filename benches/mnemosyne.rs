@@ -17,12 +17,14 @@
 
 #![allow(missing_docs)]
 
-use std::borrow::Cow;
 use std::cell::{Cell, RefCell, UnsafeCell};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use melinoe::reentrant::GuardedCell;
-use melinoe::{brand_scope, CellSliceExt, MelinoeCell, MelinoeRef};
+use melinoe::{
+    brand_scope, Borrowed, CellCowExt, CellSliceExt, MelinoeCell, MelinoeRef, RetainDecision,
+    Retained,
+};
 
 /// Bulk slab initialisation: write every block. The slice view lowers to a
 /// vectorised fill; the per-cell path issues a token-mediated store per block.
@@ -120,11 +122,34 @@ fn bench_cow_escape(c: &mut Criterion) {
             b.iter(|| {
                 tick = tick.wrapping_add(1);
                 let must_escape = black_box(tick) % 8 == 0;
-                let buf: Cow<'_, [u8]> = if must_escape {
-                    Cow::Owned(cells.borrow_slice(&token).to_vec())
+                let decision = if must_escape {
+                    RetainDecision::Retain
                 } else {
-                    Cow::Borrowed(cells.borrow_slice(&token))
+                    RetainDecision::Borrow
                 };
+                let buf = cells.borrow_cow_if(&token, decision);
+                black_box(buf.iter().fold(0u8, |a, x| a.wrapping_add(*x)))
+            });
+        });
+    });
+
+    g.bench_function("cow_static_borrow_policy", |b| {
+        brand_scope(|token| {
+            let cells: Vec<MelinoeCell<'_, u8>> =
+                (0..N).map(|i| MelinoeCell::new(i as u8)).collect();
+            b.iter(|| {
+                let buf = cells.borrow_cow_with(&token, Borrowed);
+                black_box(buf.iter().fold(0u8, |a, x| a.wrapping_add(*x)))
+            });
+        });
+    });
+
+    g.bench_function("cow_static_retain_policy", |b| {
+        brand_scope(|token| {
+            let cells: Vec<MelinoeCell<'_, u8>> =
+                (0..N).map(|i| MelinoeCell::new(i as u8)).collect();
+            b.iter(|| {
+                let buf = cells.borrow_cow_with(&token, Retained);
                 black_box(buf.iter().fold(0u8, |a, x| a.wrapping_add(*x)))
             });
         });

@@ -3,7 +3,7 @@
 
 use core::sync::atomic::Ordering;
 
-use melinoe::atomic::BrandedAtomic;
+use melinoe::atomic::{AcqRel, BrandedAtomic, Relaxed, SeqCst};
 use melinoe::sync::sync_region_scope;
 use melinoe::{brand_scope, ExclusiveToken};
 
@@ -74,6 +74,24 @@ fn compare_exchange_in_shared_phase() {
 }
 
 #[test]
+fn zst_ordering_policies_match_runtime_ordering_paths() {
+    brand_scope(|token| {
+        let a: BrandedAtomic<'_, core::sync::atomic::AtomicU64> = BrandedAtomic::new(1);
+        let snap = token.share();
+
+        assert_eq!(a.load_with(snap, Relaxed), 1);
+        a.store_with(2, snap, Relaxed);
+        assert_eq!(a.swap_with(3, snap, AcqRel), 2);
+        assert_eq!(a.fetch_add_with(4, snap, SeqCst), 3);
+        assert_eq!(a.fetch_sub_with(2, snap, Relaxed), 7);
+        assert_eq!(a.fetch_and_with(0b0111, snap, Relaxed), 5);
+        assert_eq!(a.fetch_or_with(0b1000, snap, Relaxed), 5);
+        assert_eq!(a.compare_exchange_with(13, 21, snap, AcqRel), Ok(13));
+        assert_eq!(a.load_with(snap, SeqCst), 21);
+    });
+}
+
+#[test]
 fn from_mut_brands_existing_atomic_in_place() {
     use core::sync::atomic::AtomicU64;
     let mut raw = AtomicU64::new(40);
@@ -84,6 +102,30 @@ fn from_mut_brands_existing_atomic_in_place() {
     });
     // The original atomic carries the result — no copy was made.
     assert_eq!(raw.load(Ordering::Relaxed), 42);
+}
+
+#[test]
+fn raw_atomic_views_are_zero_copy_and_value_preserving() {
+    use core::sync::atomic::AtomicU64;
+
+    brand_scope(|token| {
+        let branded: BrandedAtomic<'_, AtomicU64> = BrandedAtomic::new(7);
+        let snap = token.share();
+
+        let raw = branded.as_atomic(snap);
+        assert_eq!(raw.load(Ordering::Relaxed), 7);
+        assert_eq!(
+            raw as *const AtomicU64 as usize,
+            &branded as *const _ as usize
+        );
+        raw.store(11, Ordering::Relaxed);
+        assert_eq!(branded.load(snap, Ordering::Relaxed), 11);
+    });
+
+    let mut owned: BrandedAtomic<'static, AtomicU64> = BrandedAtomic::new(3);
+    owned.as_atomic_mut().store(5, Ordering::Relaxed);
+    let raw = owned.into_atomic();
+    assert_eq!(raw.load(Ordering::Relaxed), 5);
 }
 
 #[test]

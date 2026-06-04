@@ -8,8 +8,10 @@ efficiency, branding capability surface, testing, benchmarking, documentation.
 Full read of every source, test, and bench module; baseline `cargo test`,
 `cargo clippy --all-targets`, and `cargo miri test` across all paths (Stacked
 Borrows default + Tree Borrows on the projection/branding paths).
-Current increment audited `src/sync/partition.rs`, `src/sync/mod.rs`,
-`src/region/mod.rs`, `tests/partition.rs`, and the access Criterion harness.
+Current increment audited `src/cell/cow.rs`, `src/atomic.rs`,
+`src/static_assertions.rs`, `tests/conditional_cow.rs`,
+`tests/conditional_atomics.rs`, and the Mnemosyne / conditional-atomic Criterion
+harnesses.
 
 ## Findings
 
@@ -61,6 +63,25 @@ plan, and `partition_map_available` / `partition_for_each_available` use
 Evidence tier: type-level API plus value-semantic tests for plan equivalence,
 chunk tiling, and platform-independent full coverage.
 
+### Boundary policy monomorphization — gap closed
+
+Conditional ownership and atomic ordering were previously expressed either by
+ad hoc benchmark-local `Cow` branching or by runtime `Ordering` arguments.
+Added [0.4.0] ZST policy surfaces: `Borrowed` / `Retained` for static
+borrow-or-retain decisions, and `Relaxed` / `AcqRel` / `SeqCst` for atomic
+ordering contracts. The runtime `RetainDecision` and `Ordering` APIs remain for
+data-dependent cases. Evidence tier: compile-time ZST size assertions plus
+value-semantic tests for borrowed pointer identity, retained copy independence,
+runtime retain decisions, and ZST atomic ordering equivalence.
+
+Refinement pass: `AtomicOrder` is sealed to the crate's audited policy set;
+`BrandedAtomic::get_mut` / `into_inner` use the standard atomic unique/owned
+APIs rather than pointer reads; static `Cow` policies dispatch through policy
+method bodies, so the borrowed monomorph contains no clone branch. Added
+read-permit-gated `BrandedAtomic::as_atomic` for zero-copy interop with raw
+atomic APIs while preserving the shared-phase token proof; `as_atomic_mut` and
+`into_atomic` cover unique/owned extraction.
+
 ## Residual risk / non-goals
 
 - Projecting arbitrary *separate* cells (not sub-components of one payload) to
@@ -82,9 +103,17 @@ compilation for both Criterion harnesses. `cargo miri test --test partition`
 passes under Stacked Borrows and Tree Borrows. Version bumped 0.2.1 → 0.3.0
 ([minor], additive public API). CHANGELOG synchronized.
 
-`cargo-semver-checks` is not installed in the current environment, so SemVer
-tool verification remains a release-blocking next action. Stable
-`--all-features` still fails at the documented nightly `doc_cfg` feature gate.
+Current target is now 0.4.0 ([minor], additive public API) for conditional
+`Cow` boundary policies and monomorphized atomic ordering policies. Stable gates
+are green: `fmt --check`, `clippy --all-targets -D warnings`, `test`,
+`doc --no-deps`, no-default feature tests, and benchmark compilation for all
+five Criterion harnesses. Miri passes for conditional atomic / conditional Cow
+tests under Stacked Borrows and Tree Borrows.
+
+`cargo-semver-checks` is installed, but default comparison fails because
+`melinoe` is not found in crates.io; a baseline rev or registry release is
+needed before tagging. Stable `--all-features` still fails at the documented
+nightly `doc_cfg` feature gate.
 
 Benchmark note: the access suite was run repeatedly here (incl. a
 `--sample-size 200` sweep; the `--measurement-time 10` variant crashed on the
@@ -102,6 +131,7 @@ available-parallelism / fixed-chunk rows) carry this session's data, with the
 core-count-dependent ones labelled "measure locally." Ratios are the durable
 signal across both machines.
 
+[0.4.0]: CHANGELOG.md
 [0.3.0]: CHANGELOG.md
 [0.2.1]: CHANGELOG.md
 [0.2.0]: CHANGELOG.md

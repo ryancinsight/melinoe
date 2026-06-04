@@ -11,7 +11,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use melinoe::atomic::BrandedAtomic;
+use melinoe::atomic::{BrandedAtomic, Relaxed};
 use melinoe::brand_scope;
 
 const ITERS: u64 = 4096;
@@ -65,6 +65,19 @@ fn bench_shared_atomic(c: &mut Criterion) {
         });
     });
 
+    g.bench_function("branded_fetch_add_zst_order", |b| {
+        brand_scope(|token| {
+            let counter: BrandedAtomic<'_, AtomicU64> = BrandedAtomic::new(0);
+            let snap = token.share();
+            b.iter(|| {
+                for _ in 0..ITERS {
+                    counter.fetch_add_with(black_box(1), snap, Relaxed);
+                }
+                black_box(counter.load_with(snap, Relaxed))
+            });
+        });
+    });
+
     g.bench_function("raw_fetch_add", |b| {
         let counter = AtomicU64::new(0);
         b.iter(|| {
@@ -82,12 +95,11 @@ fn bench_shared_atomic(c: &mut Criterion) {
             b.iter(|| {
                 for _ in 0..ITERS {
                     let cur = counter.load(snap, Ordering::Relaxed);
-                    let _ = counter.compare_exchange(
+                    let _ = counter.compare_exchange_with(
                         cur,
                         cur.wrapping_add(black_box(1)),
-                        Ordering::Relaxed,
-                        Ordering::Relaxed,
                         snap,
+                        Relaxed,
                     );
                 }
                 black_box(counter.load(snap, Ordering::Relaxed))

@@ -12,7 +12,9 @@ use core::sync::atomic::AtomicUsize;
 use crate::region::WriterShard;
 use crate::sync::{SyncRegionToken, ThreadLocalToken};
 use crate::token::{ExclusiveToken, SharedReadToken};
-use crate::{BrandedAtomic, MelinoeCell, MelinoeMut, MelinoeRef};
+use crate::{AcqRel, BrandedAtomic, MelinoeCell, MelinoeMut, MelinoeRef, Relaxed, SeqCst};
+#[cfg(feature = "alloc")]
+use crate::{Borrowed, Retained};
 
 const _: () = {
     // ── Every capability token is zero-sized: carrying a permit through an
@@ -52,4 +54,15 @@ const _: () = {
     // ── A branded atomic is exactly its underlying atomic (brand marker is ZST). ──
     assert!(size_of::<BrandedAtomic<'static, AtomicUsize>>() == size_of::<AtomicUsize>());
     assert!(align_of::<BrandedAtomic<'static, AtomicUsize>>() == align_of::<AtomicUsize>());
+
+    // ── Ordering and Cow policies are ZSTs: they route strategy at compile time. ──
+    assert!(size_of::<Relaxed>() == 0);
+    assert!(size_of::<AcqRel>() == 0);
+    assert!(size_of::<SeqCst>() == 0);
+
+    #[cfg(feature = "alloc")]
+    {
+        assert!(size_of::<Borrowed>() == 0);
+        assert!(size_of::<Retained>() == 0);
+    }
 };

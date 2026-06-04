@@ -17,11 +17,15 @@
 //! * **Shared phase** — present a [`ReadPermit`] (`&` a shared token). Access is
 //!   **atomic** ([`load`], [`store`], [`swap`], [`compare_exchange`],
 //!   [`fetch_add`]…), usable concurrently from many threads.
+//! * **Interop boundary** — [`as_atomic`] returns the underlying `Atomic*`
+//!   reference under a read permit, for zero-copy integration with existing
+//!   atomic APIs while the shared phase proof is live.
 //!
 //! [`with_exclusive`]: BrandedAtomic::with_exclusive
 //! [`store_exclusive`]: BrandedAtomic::store_exclusive
 //! [`load_exclusive`]: BrandedAtomic::load_exclusive
 //! [`load`]: BrandedAtomic::load
+//! [`as_atomic`]: BrandedAtomic::as_atomic
 //! [`store`]: BrandedAtomic::store
 //! [`swap`]: BrandedAtomic::swap
 //! [`compare_exchange`]: BrandedAtomic::compare_exchange
@@ -52,6 +56,56 @@ mod sealed {
     pub trait Sealed {}
 }
 
+/// ZST ordering policy for atomic load/store/swap/fetch operations.
+///
+/// Use this when the ordering contract is fixed by the algorithm. The policy is
+/// a zero-sized type; monomorphization substitutes the associated constants at
+/// compile time. The trait is sealed so downstream code cannot introduce an
+/// ordering combination outside this crate's audited policy set.
+pub trait AtomicOrder: sealed::Sealed + Copy {
+    /// Ordering for load operations.
+    const LOAD: Ordering;
+    /// Ordering for store operations.
+    const STORE: Ordering;
+    /// Ordering for read-modify-write operations.
+    const RMW: Ordering;
+    /// Failure ordering for compare-exchange operations.
+    const FAILURE: Ordering;
+}
+
+/// Relaxed atomic ordering policy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Relaxed;
+
+/// Acquire load / release store / acquire-release RMW ordering policy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AcqRel;
+
+/// Sequentially consistent ordering policy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SeqCst;
+
+impl AtomicOrder for Relaxed {
+    const LOAD: Ordering = Ordering::Relaxed;
+    const STORE: Ordering = Ordering::Relaxed;
+    const RMW: Ordering = Ordering::Relaxed;
+    const FAILURE: Ordering = Ordering::Relaxed;
+}
+
+impl AtomicOrder for AcqRel {
+    const LOAD: Ordering = Ordering::Acquire;
+    const STORE: Ordering = Ordering::Release;
+    const RMW: Ordering = Ordering::AcqRel;
+    const FAILURE: Ordering = Ordering::Acquire;
+}
+
+impl AtomicOrder for SeqCst {
+    const LOAD: Ordering = Ordering::SeqCst;
+    const STORE: Ordering = Ordering::SeqCst;
+    const RMW: Ordering = Ordering::SeqCst;
+    const FAILURE: Ordering = Ordering::SeqCst;
+}
+
 /// An atomic primitive abstracted over its value type, so [`BrandedAtomic`] is
 /// one generic implementation rather than a type-numbered family.
 ///
@@ -77,6 +131,10 @@ pub trait Atomic: sealed::Sealed {
         success: Ordering,
         failure: Ordering,
     ) -> Result<Self::Value, Self::Value>;
+    #[doc(hidden)]
+    fn atomic_get_mut(&mut self) -> &mut Self::Value;
+    #[doc(hidden)]
+    fn atomic_into_inner(self) -> Self::Value;
     /// Pointer to the underlying value for plain (non-atomic) access.
     ///
     /// Sound to dereference only under a proof of exclusivity. An atomic has the
@@ -85,6 +143,10 @@ pub trait Atomic: sealed::Sealed {
     #[doc(hidden)]
     fn value_ptr(&self) -> *mut Self::Value;
 }
+
+impl sealed::Sealed for Relaxed {}
+impl sealed::Sealed for AcqRel {}
+impl sealed::Sealed for SeqCst {}
 
 /// Integer atomics, which additionally support arithmetic/bitwise RMW.
 pub trait AtomicInt: Atomic {
@@ -135,6 +197,14 @@ macro_rules! impl_atomic_int {
                 failure: Ordering,
             ) -> Result<$value, $value> {
                 self.compare_exchange(current, new, success, failure)
+            }
+            #[inline]
+            fn atomic_get_mut(&mut self) -> &mut $value {
+                self.get_mut()
+            }
+            #[inline]
+            fn atomic_into_inner(self) -> $value {
+                self.into_inner()
             }
             #[inline]
             fn value_ptr(&self) -> *mut $value {
@@ -205,6 +275,14 @@ impl Atomic for AtomicBool {
         self.compare_exchange(current, new, success, failure)
     }
     #[inline]
+    fn atomic_get_mut(&mut self) -> &mut bool {
+        self.get_mut()
+    }
+    #[inline]
+    fn atomic_into_inner(self) -> bool {
+        self.into_inner()
+    }
+    #[inline]
     fn value_ptr(&self) -> *mut bool {
         self as *const Self as *mut bool
     }
@@ -243,6 +321,35 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
         // SAFETY: `Self` is `#[repr(transparent)]` over `A`; the unique `&mut A`
         // becomes a unique `&mut Self`, introducing no aliasing.
         unsafe { &mut *(atomic as *mut A as *mut Self) }
+    }
+
+    /// View the underlying atomic in the shared phase, gated by a read permit.
+    ///
+    /// This is a zero-copy interop boundary for code that already expects a
+    /// standard-library atomic. The returned reference is tied to the permit
+    /// borrow, so a plain exclusive phase cannot overlap while it is live.
+    #[inline]
+    #[must_use]
+    pub fn as_atomic<'a, P>(&'a self, _permit: P) -> &'a A
+    where
+        P: ReadPermit<'brand> + 'a,
+    {
+        &self.inner
+    }
+
+    /// View the underlying atomic through unique ownership of the wrapper.
+    #[inline]
+    #[must_use]
+    pub fn as_atomic_mut(&mut self) -> &mut A {
+        &mut self.inner
+    }
+
+    /// Consume the wrapper, returning the underlying atomic without extracting
+    /// the value.
+    #[inline]
+    #[must_use]
+    pub fn into_atomic(self) -> A {
+        self.inner
     }
 
     // ───────────────────────── exclusive phase (plain) ─────────────────────────
@@ -285,16 +392,13 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
     /// Plain `&mut` access from unique ownership of the cell — no permit needed.
     #[inline]
     pub fn get_mut(&mut self) -> &mut A::Value {
-        // SAFETY: `&mut self` is unique access to the cell; no other reference,
-        // atomic or plain, can exist for the borrow.
-        unsafe { &mut *self.inner.value_ptr() }
+        self.inner.atomic_get_mut()
     }
 
     /// Consume the cell, returning the contained value.
     #[inline]
     pub fn into_inner(self) -> A::Value {
-        // SAFETY: `self` is owned; reading the value out is unaliased.
-        unsafe { *self.inner.value_ptr() }
+        self.inner.atomic_into_inner()
     }
 
     // ────────────────────────── shared phase (atomic) ──────────────────────────
@@ -308,6 +412,16 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
         self.inner.atomic_load(order)
     }
 
+    /// Atomic load using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn load_with<P, O>(&self, permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.load(permit, O::LOAD)
+    }
+
     /// Atomic store. Requires a [`ReadPermit`] for `'brand`.
     #[inline]
     pub fn store<P>(&self, value: A::Value, _permit: P, order: Ordering)
@@ -317,6 +431,16 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
         self.inner.atomic_store(value, order);
     }
 
+    /// Atomic store using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn store_with<P, O>(&self, value: A::Value, permit: P, _order: O)
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.store(value, permit, O::STORE);
+    }
+
     /// Atomic swap. Requires a [`ReadPermit`] for `'brand`.
     #[inline]
     pub fn swap<P>(&self, value: A::Value, _permit: P, order: Ordering) -> A::Value
@@ -324,6 +448,16 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
         P: ReadPermit<'brand>,
     {
         self.inner.atomic_swap(value, order)
+    }
+
+    /// Atomic swap using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn swap_with<P, O>(&self, value: A::Value, permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.swap(value, permit, O::RMW)
     }
 
     /// Atomic compare-and-exchange. Requires a [`ReadPermit`] for `'brand`.
@@ -346,6 +480,26 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
         self.inner
             .atomic_compare_exchange(current, new, success, failure)
     }
+
+    /// Atomic compare-and-exchange using a compile-time ZST ordering policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(current)` if the stored value did not equal `current`.
+    #[inline]
+    pub fn compare_exchange_with<P, O>(
+        &self,
+        current: A::Value,
+        new: A::Value,
+        permit: P,
+        _order: O,
+    ) -> Result<A::Value, A::Value>
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.compare_exchange(current, new, O::RMW, O::FAILURE, permit)
+    }
 }
 
 impl<'brand, A: AtomicInt> BrandedAtomic<'brand, A> {
@@ -358,6 +512,16 @@ impl<'brand, A: AtomicInt> BrandedAtomic<'brand, A> {
         self.inner.atomic_fetch_add(value, order)
     }
 
+    /// Atomic fetch-add using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_add_with<P, O>(&self, value: A::Value, permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.fetch_add(value, permit, O::RMW)
+    }
+
     /// Atomic fetch-sub. Requires a [`ReadPermit`] for `'brand`.
     #[inline]
     pub fn fetch_sub<P>(&self, value: A::Value, _permit: P, order: Ordering) -> A::Value
@@ -365,6 +529,16 @@ impl<'brand, A: AtomicInt> BrandedAtomic<'brand, A> {
         P: ReadPermit<'brand>,
     {
         self.inner.atomic_fetch_sub(value, order)
+    }
+
+    /// Atomic fetch-sub using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_sub_with<P, O>(&self, value: A::Value, permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.fetch_sub(value, permit, O::RMW)
     }
 
     /// Atomic fetch-and. Requires a [`ReadPermit`] for `'brand`.
@@ -376,6 +550,16 @@ impl<'brand, A: AtomicInt> BrandedAtomic<'brand, A> {
         self.inner.atomic_fetch_and(value, order)
     }
 
+    /// Atomic fetch-and using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_and_with<P, O>(&self, value: A::Value, permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.fetch_and(value, permit, O::RMW)
+    }
+
     /// Atomic fetch-or. Requires a [`ReadPermit`] for `'brand`.
     #[inline]
     pub fn fetch_or<P>(&self, value: A::Value, _permit: P, order: Ordering) -> A::Value
@@ -383,6 +567,16 @@ impl<'brand, A: AtomicInt> BrandedAtomic<'brand, A> {
         P: ReadPermit<'brand>,
     {
         self.inner.atomic_fetch_or(value, order)
+    }
+
+    /// Atomic fetch-or using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_or_with<P, O>(&self, value: A::Value, permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.fetch_or(value, permit, O::RMW)
     }
 }
 
