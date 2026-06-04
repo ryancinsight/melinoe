@@ -98,6 +98,13 @@ arity-specific `brand_scopeN`/`CellN` variants:
   boundary check yields a borrow-checked `&mut T` (or a fresh-brand token),
   re-entry is refused rather than aliased, panic-safe by construction. This is the
   sound bridge for state that outlives any single `brand_scope` closure.
+* **Conditional atomics** — `atomic::BrandedAtomic` is the write-side analogue of
+  `Cow`: the capability you present selects the *cost*. A `WritePermit` (proven
+  single-writer phase) gives **plain, non-atomic** access; a `ReadPermit` (shared
+  phase) gives **atomic** `load`/`store`/`fetch_add`/`compare_exchange`. You pay
+  for synchronization only while sharing — ~32× cheaper in the exclusive phase
+  (0.19 ns vs 6.1 ns/op). The brand makes plain and atomic access *temporally
+  exclusive*, so they can never race; verified data-race-free under Miri.
 
 ## Quick start
 

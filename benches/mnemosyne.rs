@@ -19,8 +19,10 @@
 
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell, UnsafeCell};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use melinoe::atomic::BrandedAtomic;
 use melinoe::reentrant::GuardedCell;
 use melinoe::{brand_scope, CellSliceExt, MelinoeCell};
 
@@ -204,11 +206,45 @@ fn bench_guarded_access(c: &mut Criterion) {
     g.finish();
 }
 
+/// Conditional atomics: a counter bumped in a single-writer (exclusive) phase.
+/// `BrandedAtomic` does this with plain stores; a plain `AtomicU64` pays a locked
+/// RMW on every bump even though no other thread touches it yet.
+fn bench_conditional_atomic(c: &mut Criterion) {
+    const ITERS: u64 = 4096;
+    let mut g = c.benchmark_group("exclusive_counter_4096x");
+    g.throughput(Throughput::Elements(ITERS));
+
+    g.bench_function("branded_exclusive_plain", |b| {
+        brand_scope(|mut token| {
+            let counter: BrandedAtomic<'_, AtomicU64> = BrandedAtomic::new(0);
+            b.iter(|| {
+                for _ in 0..ITERS {
+                    counter.with_exclusive(&mut token, |v| *v = v.wrapping_add(black_box(1)));
+                }
+                black_box(counter.load_exclusive(&mut token))
+            });
+        });
+    });
+
+    g.bench_function("atomic_fetch_add", |b| {
+        let counter = AtomicU64::new(0);
+        b.iter(|| {
+            for _ in 0..ITERS {
+                counter.fetch_add(black_box(1), Ordering::Relaxed);
+            }
+            black_box(counter.load(Ordering::Relaxed))
+        });
+    });
+
+    g.finish();
+}
+
 criterion_group!(
     benches,
     bench_slab_fill,
     bench_slab_scan,
     bench_cow_escape,
-    bench_guarded_access
+    bench_guarded_access,
+    bench_conditional_atomic
 );
 criterion_main!(benches);

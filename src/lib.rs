@@ -49,6 +49,10 @@
 //!   (thread-lifetime) exclusive state: one runtime check at the boundary yields
 //!   a borrow-checked `&mut T` (or a fresh-brand token), with re-entry refused
 //!   rather than aliased.
+//! * [`atomic::BrandedAtomic`] — *conditional atomics*: plain non-atomic access
+//!   under a [`WritePermit`] (proven-exclusive phase), atomic access under a
+//!   [`ReadPermit`] (shared phase). The capability selects the cost, so you pay
+//!   for synchronization only while sharing — the write-side analogue of `Cow`.
 //!
 //! ## Quick start
 //!
@@ -113,6 +117,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod atomic;
 pub mod cell;
 pub mod reentrant;
 pub mod region;
@@ -129,6 +134,8 @@ mod readme_doctests {
 
 mod static_assertions;
 
+#[doc(inline)]
+pub use atomic::BrandedAtomic;
 #[doc(inline)]
 pub use cell::{CellSliceExt, MelinoeCell, MelinoeMut, MelinoeRef};
 #[doc(inline)]

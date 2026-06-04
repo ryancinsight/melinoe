@@ -168,6 +168,24 @@ drop guard, so a panicking closure cannot poison the cell, whereas the raw idiom
 (and a hand-written `is_allocating` bool) leaks the flag on unwind. Same cost,
 strictly safer.
 
+### Conditional atomics — exclusive-phase counter (`exclusive_counter_4096x`)
+
+A counter bumped during a single-writer (exclusive) phase. `BrandedAtomic` uses
+plain stores when a `WritePermit` proves exclusivity; a plain `AtomicU64` pays a
+locked RMW on every bump even though nothing else touches it yet.
+
+| Mechanism | Time / 4096 ops | Per op |
+|-----------|-----------------|-------:|
+| **`BrandedAtomic` plain (`with_exclusive`)** | 787 ns | ~0.19 ns |
+| `AtomicU64::fetch_add` | 24.94 µs | ~6.1 ns |
+
+**~32× faster** in the exclusive phase. The same cell switches to true atomic ops
+(`load`/`fetch_add`/`compare_exchange`) the moment you present a `ReadPermit`
+instead — you pay for synchronization only while sharing, the write-side analogue
+of `Cow`. The brand makes the two modes temporally exclusive (plain borrows the
+token `&mut`, atomic borrows it `&`), so they can never race; the cross-thread
+plain→atomic→plain transition is verified data-race-free under Miri.
+
 ## Disjoint per-thread counters: false sharing & memory (`cargo bench --bench false_sharing`)
 
 Pattern: 8 threads each accumulate into their *own* counter, results read after

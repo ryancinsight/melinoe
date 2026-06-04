@@ -7,10 +7,12 @@
 
 use core::mem::{align_of, size_of};
 
+use core::sync::atomic::AtomicUsize;
+
 use crate::region::WriterShard;
 use crate::sync::{SyncRegionToken, ThreadLocalToken};
 use crate::token::{ExclusiveToken, SharedReadToken};
-use crate::{MelinoeCell, MelinoeMut, MelinoeRef};
+use crate::{BrandedAtomic, MelinoeCell, MelinoeMut, MelinoeRef};
 
 const _: () = {
     // ── Every capability token is zero-sized: carrying a permit through an
@@ -40,4 +42,8 @@ const _: () = {
         size_of::<WriterShard<'static, 'static, u64>>()
             == size_of::<&mut [MelinoeCell<'static, u64>]>()
     );
+
+    // ── A branded atomic is exactly its underlying atomic (brand marker is ZST). ──
+    assert!(size_of::<BrandedAtomic<'static, AtomicUsize>>() == size_of::<AtomicUsize>());
+    assert!(align_of::<BrandedAtomic<'static, AtomicUsize>>() == align_of::<AtomicUsize>());
 };
