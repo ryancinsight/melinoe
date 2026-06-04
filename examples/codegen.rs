@@ -23,8 +23,13 @@
 //! * `melinoe_read` — a single `movq` load.
 //! * `raw_atomic_fetch_add` = `branded_atomic_fetch_add` — one `lock xaddq`
 //!   (the shared atomic path is a real atomic, identical to raw).
+//! * `branded_atomic_fetch_add_relaxed` — the ZST-ordering variant emits the
+//!   same instruction as the runtime-`Ordering` and raw atomic forms.
 //! * `melinoe_slice_sum` — instruction-for-instruction identical to
 //!   `raw_slice_sum` (the same vectorised reduction over a native `&[u64]`).
+//! * `melinoe_cow_borrow_sum` — optimizes to the same borrowed-slice reduction;
+//!   the direct `borrow_cow` boundary introduces no allocation on the borrowed
+//!   path.
 //! * `guarded_get_mut` — a plain load/inc/store; the re-entrancy flag occupies a
 //!   byte but is not touched on the access path.
 //!
@@ -33,9 +38,9 @@
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use melinoe::atomic::BrandedAtomic;
+use melinoe::atomic::{BrandedAtomic, Relaxed};
 use melinoe::reentrant::GuardedCell;
-use melinoe::{CellSliceExt, ExclusiveToken, MelinoeCell, SharedReadToken};
+use melinoe::{CellCowExt, CellSliceExt, ExclusiveToken, MelinoeCell, SharedReadToken};
 
 // ── Single-cell token-mediated access vs raw `UnsafeCell` ──
 
@@ -75,6 +80,15 @@ fn raw_slice_sum(s: &[u64]) -> u64 {
     s.iter().sum()
 }
 
+#[no_mangle]
+#[inline(never)]
+fn melinoe_cow_borrow_sum(
+    cells: &[MelinoeCell<'static, u64>],
+    tok: SharedReadToken<'static, 'static>,
+) -> u64 {
+    cells.borrow_cow(tok).iter().sum()
+}
+
 // ── Conditional atomic: exclusive (plain) vs raw store, shared (atomic) vs raw ──
 
 #[no_mangle]
@@ -95,6 +109,26 @@ fn branded_atomic_fetch_add(
     v: u64,
 ) -> u64 {
     a.fetch_add(v, tok, Ordering::Relaxed)
+}
+
+#[no_mangle]
+#[inline(never)]
+fn branded_atomic_fetch_add_relaxed(
+    a: &BrandedAtomic<'static, AtomicU64>,
+    tok: SharedReadToken<'static, 'static>,
+    v: u64,
+) -> u64 {
+    a.fetch_add_with(v, tok, Relaxed)
+}
+
+#[no_mangle]
+#[inline(never)]
+fn branded_atomic_interop_fetch_add(
+    a: &BrandedAtomic<'static, AtomicU64>,
+    tok: SharedReadToken<'static, 'static>,
+    v: u64,
+) -> u64 {
+    a.as_atomic(tok).fetch_add(v, Ordering::Relaxed)
 }
 
 #[no_mangle]

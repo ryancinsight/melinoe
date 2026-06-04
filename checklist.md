@@ -6,6 +6,8 @@ Target version: 0.5.0
 
 - [x] [minor] Add direct `CellCowExt::borrow_cow` / `retain_cow` methods for
   common static zero-copy and retain-once boundary cases.
+- [x] [patch] Extend codegen probes for direct `borrow_cow`, ZST atomic ordering,
+  and read-permit-gated raw atomic interop.
 - [x] [minor] Add `CellCowExt` conditional `Cow` boundary API with `Borrowed` /
   `Retained` ZST policies and `RetainDecision` runtime policy.
 - [x] [minor] Add `AtomicOrder` ZST policies (`Relaxed`, `AcqRel`, `SeqCst`)

@@ -15,6 +15,8 @@ All notable changes to `melinoe` are documented here. The format follows
   copy independence.
 - Mnemosyne `cow_escape` benchmark rows now exercise the direct `borrow_cow` /
   `retain_cow` methods for the static zero-copy and retain-once cases.
+- `examples/codegen.rs` now probes `borrow_cow`, `fetch_add_with(Relaxed)`, and
+  raw atomic interop through `as_atomic` against their raw equivalents.
 
 ## [0.4.0] — 2026-06-04
 

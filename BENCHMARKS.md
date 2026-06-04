@@ -306,7 +306,10 @@ identical to its raw equivalent — the linker folds them into one symbol:
 |--------------|------------|--------------|
 | `MelinoeCell::borrow_mut` write | `BrandedAtomic::store_exclusive` | one plain `movq` store |
 | `BrandedAtomic::fetch_add` | raw `AtomicU64::fetch_add` | one `lock xaddq` |
+| `BrandedAtomic::fetch_add_with(Relaxed)` | raw `AtomicU64::fetch_add` | same relaxed atomic RMW |
+| `BrandedAtomic::as_atomic(...).fetch_add` | raw `AtomicU64::fetch_add` | same relaxed atomic RMW |
 | `CellSliceExt::borrow_slice` sum | raw `&[u64]` sum | identical vectorised reduction |
+| `CellCowExt::borrow_cow` sum | raw `&[u64]` sum | borrowed path, no allocation |
 
 Branding, permits, and phantom markers leave no trace. Run
 `cargo rustc --release --example codegen -- --emit asm` to reproduce.
