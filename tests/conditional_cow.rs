@@ -23,6 +23,22 @@ fn borrowed_policy_returns_zero_copy_borrow() {
 }
 
 #[test]
+fn direct_borrow_cow_is_zero_copy() {
+    brand_scope(|token| {
+        let cells: Vec<MelinoeCell<'_, u8>> = (4..8).map(MelinoeCell::new).collect();
+        let cow = cells.borrow_cow(&token);
+
+        match cow {
+            Cow::Borrowed(slice) => {
+                assert_eq!(slice, &[4, 5, 6, 7]);
+                assert_eq!(slice.as_ptr() as usize, cells.as_ptr() as usize);
+            }
+            Cow::Owned(_) => panic!("borrow_cow must not clone"),
+        }
+    });
+}
+
+#[test]
 fn retained_policy_returns_owned_copy() {
     brand_scope(|token| {
         let cells: Vec<MelinoeCell<'_, u8>> = (0..4).map(MelinoeCell::new).collect();
@@ -32,6 +48,22 @@ fn retained_policy_returns_owned_copy() {
             Cow::Borrowed(_) => panic!("Retained policy must clone"),
             Cow::Owned(values) => {
                 assert_eq!(values, vec![0, 1, 2, 3]);
+                assert_ne!(values.as_ptr() as usize, cells.as_ptr() as usize);
+            }
+        }
+    });
+}
+
+#[test]
+fn direct_retain_cow_clones_once() {
+    brand_scope(|token| {
+        let cells: Vec<MelinoeCell<'_, u8>> = (8..12).map(MelinoeCell::new).collect();
+        let cow = cells.retain_cow(&token);
+
+        match cow {
+            Cow::Borrowed(_) => panic!("retain_cow must clone"),
+            Cow::Owned(values) => {
+                assert_eq!(values, vec![8, 9, 10, 11]);
                 assert_ne!(values.as_ptr() as usize, cells.as_ptr() as usize);
             }
         }

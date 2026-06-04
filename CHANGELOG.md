@@ -4,6 +4,16 @@ All notable changes to `melinoe` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-06-04
+
+### Added
+
+- `CellCowExt::borrow_cow` and `CellCowExt::retain_cow` as direct, branch-free
+  convenience methods for the common static boundary cases. `borrow_cow` returns
+  zero-copy `Cow::Borrowed`; `retain_cow` clones the branded slice exactly once.
+- Value-semantic tests for direct borrowed pointer identity and retained owned
+  copy independence.
+
 ## [0.4.0] — 2026-06-04
 
 ### Added
@@ -106,6 +116,7 @@ All notable changes to `melinoe` are documented here. The format follows
   interior mutability, `CellSliceExt` zero-copy slice views, and `WriterShard`
   disjoint concurrent-write partitioning.
 
+[0.5.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.5.0
 [0.4.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.4.0
 [0.3.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.3.0
 [0.2.1]: https://github.com/ryancinsight/melinoe/releases/tag/v0.2.1

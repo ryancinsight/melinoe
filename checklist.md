@@ -1,9 +1,11 @@
 # Checklist — melinoe
 
-Target version: 0.4.0
+Target version: 0.5.0
 
 ## Current micro-sprint
 
+- [x] [minor] Add direct `CellCowExt::borrow_cow` / `retain_cow` methods for
+  common static zero-copy and retain-once boundary cases.
 - [x] [minor] Add `CellCowExt` conditional `Cow` boundary API with `Borrowed` /
   `Retained` ZST policies and `RetainDecision` runtime policy.
 - [x] [minor] Add `AtomicOrder` ZST policies (`Relaxed`, `AcqRel`, `SeqCst`)

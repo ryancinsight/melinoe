@@ -64,6 +64,22 @@ pub enum RetainDecision {
 /// Conditional `Cow` views over `[MelinoeCell<'brand, T>]`, gated by a read
 /// permit.
 pub trait CellCowExt<'brand, T: Clone> {
+    /// Return a zero-copy borrowed `Cow`.
+    ///
+    /// This is the non-generic convenience form of
+    /// `borrow_cow_with(permit, Borrowed)`.
+    fn borrow_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
+    where
+        P: ReadPermit<'brand> + 'a;
+
+    /// Return an owned `Cow` by cloning the branded slice exactly once.
+    ///
+    /// This is the non-generic convenience form of
+    /// `borrow_cow_with(permit, Retained)`.
+    fn retain_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
+    where
+        P: ReadPermit<'brand> + 'a;
+
     /// Return a `Cow` according to the compile-time ZST policy `C`.
     ///
     /// `Borrowed` performs no allocation and no clone; `Retained` clones exactly
@@ -80,6 +96,22 @@ pub trait CellCowExt<'brand, T: Clone> {
 }
 
 impl<'brand, T: Clone> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
+    #[inline]
+    fn borrow_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
+    where
+        P: ReadPermit<'brand> + 'a,
+    {
+        Cow::Borrowed(self.borrow_slice(permit))
+    }
+
+    #[inline]
+    fn retain_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
+    where
+        P: ReadPermit<'brand> + 'a,
+    {
+        Cow::Owned(self.borrow_slice(permit).to_vec())
+    }
+
     #[inline]
     fn borrow_cow_with<'a, P, C>(&'a self, permit: P, _policy: C) -> Cow<'a, [T]>
     where
