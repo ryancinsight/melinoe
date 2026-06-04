@@ -1,12 +1,13 @@
 # Benchmarks: Melinoe vs `Mutex` / `RwLock` / `AtomicU64`
 
-Reproduce (four Criterion harnesses):
+Reproduce (five Criterion harnesses):
 
 ```sh
-cargo bench --bench access            # single-thread RMW/read + partitioned writes
-cargo bench --bench concurrent_reads  # read throughput, 1→16 threads
-cargo bench --bench false_sharing     # disjoint per-thread counters
-cargo bench --bench mnemosyne         # slab access, Cow escape, GuardedCell
+cargo bench --bench access               # RMW/read, interior mutability, partitioned writes
+cargo bench --bench concurrent_reads     # read throughput, 1→16 threads
+cargo bench --bench false_sharing        # disjoint per-thread counters
+cargo bench --bench mnemosyne            # slab access, Cow escape, GuardedCell
+cargo bench --bench conditional_atomics  # BrandedAtomic exclusive/shared/mixed
 # faster, lower-confidence sweep — append to any of the above:
 #   -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
 ```
@@ -55,6 +56,24 @@ it is the optimizer proving the repeated read redundant because token access
 carries no side effect. That transparency to optimization *is* the zero-cost
 property — see the assembly in [`examples/codegen.rs`](examples/codegen.rs),
 where one access is a single `mov`.
+
+### Single-threaded interior mutability (`interior_mut_1024x`)
+
+Against the std analogues — `RefCell` (runtime borrow counter) and `Cell` (plain,
+value-only). Read-modify-write per op.
+
+| Mechanism | Time / 1024 ops | Per op |
+|-----------|-----------------|-------:|
+| **Melinoe** (`borrow_mut`) | 197 ns | ~0.19 ns |
+| `RefCell::borrow_mut`      | 195 ns | ~0.19 ns |
+| `Cell::set`                | 197 ns | ~0.19 ns |
+
+**Parity** — all three optimize to the bare mutation in a tight loop. Melinoe's
+advantage here is *not* speed but kind: it gives real `&mut T`/`&T` references
+(unlike `Cell`, which is value-only) with **no runtime borrow flag and no
+`borrow()` panic path** (unlike `RefCell`) — the exclusion is the compile-time
+token. Same cost as `Cell`, the ergonomics of `&mut`, none of `RefCell`'s
+runtime failure mode.
 
 ### Concurrent read scaling (`cargo bench --bench concurrent_reads`)
 
@@ -168,23 +187,45 @@ drop guard, so a panicking closure cannot poison the cell, whereas the raw idiom
 (and a hand-written `is_allocating` bool) leaks the flag on unwind. Same cost,
 strictly safer.
 
-### Conditional atomics — exclusive-phase counter (`exclusive_counter_4096x`)
+## Conditional atomics (`cargo bench --bench conditional_atomics`)
 
-A counter bumped during a single-writer (exclusive) phase. `BrandedAtomic` uses
-plain stores when a `WritePermit` proves exclusivity; a plain `AtomicU64` pays a
-locked RMW on every bump even though nothing else touches it yet.
+`BrandedAtomic` is the write-side analogue of `Cow`: a `WritePermit` (proven
+exclusive phase) gives **plain** access, a `ReadPermit` (shared phase) gives
+**atomic** access. The brand makes the two modes temporally exclusive (plain
+borrows the token `&mut`, atomic borrows it `&`), so they can never race; the
+cross-thread plain→atomic→plain transition is verified data-race-free under Miri.
+
+**Exclusive phase** — plain bump vs a real atomic RMW (`exclusive_counter_4096x`):
 
 | Mechanism | Time / 4096 ops | Per op |
 |-----------|-----------------|-------:|
-| **`BrandedAtomic` plain (`with_exclusive`)** | 787 ns | ~0.19 ns |
-| `AtomicU64::fetch_add` | 24.94 µs | ~6.1 ns |
+| **`BrandedAtomic` plain (`with_exclusive`)** | 781 ns | ~0.19 ns |
+| `AtomicU64::fetch_add` | 25.2 µs | ~6.2 ns |
 
-**~32× faster** in the exclusive phase. The same cell switches to true atomic ops
-(`load`/`fetch_add`/`compare_exchange`) the moment you present a `ReadPermit`
-instead — you pay for synchronization only while sharing, the write-side analogue
-of `Cow`. The brand makes the two modes temporally exclusive (plain borrows the
-token `&mut`, atomic borrows it `&`), so they can never race; the cross-thread
-plain→atomic→plain transition is verified data-race-free under Miri.
+**~32× faster** while exclusive — you pay nothing for synchronization you don't
+yet need.
+
+**Shared phase** — atomic ops vs raw `AtomicU64` (`shared_atomic_4096x`):
+
+| Op | `BrandedAtomic` | raw `AtomicU64` |
+|----|----------------:|----------------:|
+| `fetch_add` | 24.9 µs | 25.0 µs |
+| `compare_exchange` | 29.2 µs | 28.7 µs |
+
+**Parity** — `BrandedAtomic` is a `#[repr(transparent)]` zero-cost wrapper on the
+atomic side; it adds no overhead when you *do* need atomics. So the cell is cheap
+when exclusive and free when shared.
+
+**Mixed phase** — 2048 private plain bumps then 2048 shared atomic ops, vs doing
+all 4096 atomically (`mixed_phase_build2k_publish2k`):
+
+| Mechanism | Time |
+|-----------|-----:|
+| **`BrandedAtomic` conditional** | 12.8 µs |
+| always-atomic | 24.7 µs |
+
+**~1.93× faster** end to end: the build-up phase runs plain, atomics start only at
+publication.
 
 ## Disjoint per-thread counters: false sharing & memory (`cargo bench --bench false_sharing`)
 

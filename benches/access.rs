@@ -11,6 +11,8 @@
 //!
 //! * `increment_*` — single-threaded read-modify-write latency.
 //! * `read_*`      — single-threaded read latency.
+//! * `interior_mut_*` — single-threaded interior mutability vs `RefCell`/`Cell`,
+//!   the std analogues (Melinoe has no runtime borrow flag).
 //! * `concurrent_reads_*` — throughput of N threads issuing shared reads; here
 //!   Melinoe's lack of an atomic/lock on the read path is the decisive factor.
 //!
@@ -25,6 +27,7 @@
 // the crate's `missing_docs = "deny"` lint does not apply to generated harness code.
 #![allow(missing_docs)]
 
+use std::cell::{Cell, RefCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, RwLock};
 use std::thread;
@@ -139,6 +142,48 @@ fn bench_read(c: &mut Criterion) {
     g.finish();
 }
 
+/// Single-threaded interior mutability: Melinoe token access vs the std analogues
+/// `RefCell` (runtime borrow counter) and `Cell` (plain). Melinoe carries no
+/// runtime borrow flag — the exclusion is the compile-time token.
+fn bench_interior_mut(c: &mut Criterion) {
+    let mut g = c.benchmark_group("interior_mut_1024x");
+    g.throughput(Throughput::Elements(ITERS));
+
+    g.bench_function("melinoe", |b| {
+        brand_scope(|mut token| {
+            let cell = MelinoeCell::new(0u64);
+            b.iter(|| {
+                for _ in 0..ITERS {
+                    *cell.borrow_mut(&mut token) += black_box(1);
+                }
+                black_box(*cell.borrow(&token))
+            });
+        });
+    });
+
+    g.bench_function("refcell", |b| {
+        let cell = RefCell::new(0u64);
+        b.iter(|| {
+            for _ in 0..ITERS {
+                *cell.borrow_mut() += black_box(1);
+            }
+            black_box(*cell.borrow())
+        });
+    });
+
+    g.bench_function("cell", |b| {
+        let cell = Cell::new(0u64);
+        b.iter(|| {
+            for _ in 0..ITERS {
+                cell.set(cell.get().wrapping_add(black_box(1)));
+            }
+            black_box(cell.get())
+        });
+    });
+
+    g.finish();
+}
+
 // Concurrent read throughput is measured rigorously in the dedicated
 // `concurrent_reads` benchmark (thread-scaling, spawn amortised). A naive
 // spawn-per-sample version here would measure thread-spawn overhead, not reads.
@@ -239,6 +284,7 @@ criterion_group!(
     benches,
     bench_increment,
     bench_read,
+    bench_interior_mut,
     bench_partitioned_writes
 );
 criterion_main!(benches);

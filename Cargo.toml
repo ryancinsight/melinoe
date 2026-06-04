@@ -58,3 +58,8 @@ all = "warn"
 name = "false_sharing"
 harness = false
 required-features = ["std"]
+
+[[bench]]
+name = "conditional_atomics"
+harness = false
+required-features = ["std"]

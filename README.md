@@ -178,23 +178,32 @@ work pinned by [`tests/differential.rs`](tests/differential.rs)):
 
 | Single-threaded RMW | Per op | vs Melinoe |
 |---------------------|--------|-----------:|
-| **Melinoe** (`borrow_mut`) | ~0.21 ns | 1.0× |
-| `AtomicU64` (Relaxed `fetch_add`) | ~6.1 ns | ~29× |
-| `RwLock` (write) | ~8.6 ns | ~40× |
-| `Mutex` | ~11.6 ns | ~54× |
+| **Melinoe** (`borrow_mut`) | ~0.20 ns | 1.0× |
+| `AtomicU64` (Relaxed `fetch_add`) | ~6.1 ns | ~30× |
+| `Mutex` | ~11.9 ns | ~59× |
+| `RwLock` (write) | ~12.0 ns | ~60× |
 
-For concurrent reads, Melinoe's `SharedReadToken` scales **near-linearly** with
-cores (a branded read is a plain load with zero shared mutable state), reaching
-**~10× `RwLock`** and **~15× `Mutex`** at 16 threads — where `RwLock` stops
-scaling entirely, its reader-count atomic bouncing between cores. (Full
-thread-scaling table in [`BENCHMARKS.md`](BENCHMARKS.md).)
+Against the single-threaded analogues `RefCell` and `Cell`, Melinoe is at
+**parity** (~0.19 ns/op) — same cost as `Cell`, but with real `&mut T`/`&T`
+references and no `RefCell` runtime borrow flag or `borrow()` panic path.
+
+For **concurrent reads**, Melinoe's `SharedReadToken` scales **near-linearly**
+with cores, reaching **~10× `RwLock`** and **~15× `Mutex`** at 16 threads — where
+`RwLock` stops scaling entirely, its reader-count atomic bouncing between cores.
 
 For **concurrent writes**, disjoint [`WriterShard`](src/region/mod.rs) partitions
-(below) scale near-linearly using plain stores, matching lock-free atomics while
-a `Mutex<Vec>` — which cannot express disjoint `&mut` — serializes and loses to
-the single-threaded baseline. Full methodology, all tables, and the honest
-caveats are in [`BENCHMARKS.md`](BENCHMARKS.md). Ratios are the signal; absolute
-figures are hardware-dependent. Reproduce with `cargo bench --bench access`.
+scale near-linearly using plain stores, matching lock-free atomics while a
+`Mutex<Vec>` — which cannot express disjoint `&mut` — serializes and loses to the
+single-threaded baseline.
+
+For **conditional atomics** ([`BrandedAtomic`](src/atomic.rs)), the exclusive
+phase is **~32×** cheaper than a real atomic RMW (plain stores), the shared phase
+is **at parity** with a raw `AtomicU64` (zero-cost wrapper), and a mixed
+build-then-publish workload is **~1.93×** faster end to end.
+
+Full methodology, all tables (five Criterion harnesses), and the honest caveats
+are in [`BENCHMARKS.md`](BENCHMARKS.md). Ratios are the signal; absolute figures
+are hardware-dependent. Reproduce with `cargo bench`.
 
 ## Concurrent writes via disjoint shards
 
