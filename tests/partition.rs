@@ -46,6 +46,45 @@ fn chunks_cover_region_without_overlap() {
     });
 }
 
+/// `chunks` reports its exact remaining shard count up front and as it is
+/// consumed, so a driver can reserve worker capacity from the iterator alone.
+#[test]
+fn chunks_report_exact_size() {
+    brand_scope(|_token| {
+        let mut cells: Vec<MelinoeCell<'_, usize>> = (0..10).map(|_| MelinoeCell::new(0)).collect();
+
+        // 10 cells / chunk 3 → ceil = 4 shards (3,3,3,1).
+        let mut chunks = WriterShard::new(&mut cells).chunks(3);
+        assert_eq!(chunks.len(), 4);
+        assert_eq!(chunks.size_hint(), (4, Some(4)));
+
+        // The reported count decrements exactly as shards are yielded.
+        let mut observed = 0;
+        let mut expected_remaining = 4;
+        while let Some(shard) = chunks.next() {
+            let _ = shard;
+            expected_remaining -= 1;
+            observed += 1;
+            assert_eq!(chunks.len(), expected_remaining);
+        }
+        assert_eq!(observed, 4);
+        assert_eq!(chunks.len(), 0);
+    });
+}
+
+/// An empty region yields zero shards — the exact size is `0`, so a driver
+/// reserves no capacity and spawns no worker for it.
+#[test]
+fn empty_region_chunks_report_zero() {
+    brand_scope(|_token| {
+        let mut cells: [MelinoeCell<'_, usize>; 0] = [];
+        let chunks = WriterShard::new(&mut cells).chunks(8);
+        assert_eq!(chunks.len(), 0);
+        assert_eq!(chunks.size_hint(), (0, Some(0)));
+        assert_eq!(chunks.count(), 0);
+    });
+}
+
 /// Read capability is available through `&shard`; write through `&mut shard`.
 #[test]
 fn shard_read_and_write_capabilities() {

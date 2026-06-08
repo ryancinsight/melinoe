@@ -8,8 +8,12 @@ efficiency, branding capability surface, testing, benchmarking, documentation.
 Full read of every source, test, and bench module; baseline `cargo test`,
 `cargo clippy --all-targets`, and `cargo miri test` across all paths (Stacked
 Borrows default + Tree Borrows on the projection/branding paths).
-Current increment audited `src/cell/cow.rs`, `src/atomic.rs`,
-`src/static_assertions.rs`, `tests/conditional_cow.rs`,
+The 0.6.0 increment audited the full source tree again end to end; the access
+core, token families, guards, atomics, and Cow/slice paths remain optimal and
+unchanged. Two gaps were found and closed: a shard-count SSOT duplication in the
+partition driver (`src/region/mod.rs`, `src/sync/partition.rs`) and a feature-gate
+defect in `examples/codegen.rs`. The prior increment audited `src/cell/cow.rs`,
+`src/atomic.rs`, `src/static_assertions.rs`, `tests/conditional_cow.rs`,
 `tests/conditional_atomics.rs`, and the Mnemosyne / conditional-atomic Criterion
 harnesses.
 
@@ -91,6 +95,32 @@ adds direct-vs-ZST-policy Cow rows and read-permit-gated `as_atomic` interop;
 targeted Criterion reruns show static Cow policy rows match direct methods
 within local run noise and shared atomic interop matches raw atomic throughput.
 
+### Partition shard-count SSOT — gap closed (0.6.0)
+
+The shard count was computed in two places: the private `shard_count(len, chunk)`
+ceiling-division helper (used to size the worker-handle `Vec`) and, implicitly,
+the `ShardChunks` iterator that actually yields the shards. The two agreed, but
+the duplication was a latent SSOT/DRY hazard — a future change to chunking could
+desynchronize the reserved capacity from the real yield. `ShardChunks` now
+implements `ExactSizeIterator` with an exact `size_hint`
+(`ceil(remaining / chunk)`, decrementing as consumed), and `partition_map_with`
+reserves capacity from `chunks.len()`. The helper and the `ResolvedPartitionPlan`
+struct are removed; `PartitionPlan::resolve` returns only the chunk size. The
+empty/over-partitioned memory-efficiency contract is unchanged (the iterator
+reports `0` for an empty region) and is pinned by both the new exact-size tests
+and the `partition_driver/empty_region` benchmark (~42 ns, no spawn). The new
+`ExactSizeIterator` impl is additive public API ([minor]). Evidence tier:
+value-semantic tests plus Criterion confirmation of no regression.
+
+### Feature hygiene — gap closed (0.6.0)
+
+`examples/codegen.rs` used the alloc-gated `CellCowExt::borrow_cow` but carried no
+`required-features`, so `cargo test --no-default-features` failed to compile the
+example despite the checklist claiming the gate passed. Fixed by declaring
+`required-features = ["alloc"]` for the example in `Cargo.toml`. The full feature
+matrix (`--no-default-features`, `--no-default-features --features alloc`,
+`--features std`) now builds and tests clean.
+
 ## Residual risk / non-goals
 
 - Projecting arbitrary *separate* cells (not sub-components of one payload) to
@@ -104,6 +134,31 @@ within local run noise and shared atomic interop matches raw atomic throughput.
   set. Not a defect.
 
 ## Status
+
+0.6.0 increment implemented and tracked in `checklist.md` / `backlog.md`.
+Stable gates green: `fmt --check`, `clippy --all-targets -- -D warnings`,
+`test --features std` (88 passed), `doc --no-deps`, and the full feature matrix
+(`--no-default-features`, `--no-default-features --features alloc`). The
+`partition_driver` Criterion group was rerun (fast sweep); `empty_region`
+(~42 ns) confirms the no-spawn / zero-capacity contract survives the SSOT
+refactor. Version bumped 0.5.0 → 0.6.0 ([minor], additive public API:
+`ShardChunks: ExactSizeIterator`). CHANGELOG synchronized.
+
+All prior verification residuals are now resolved. **Miri** is clean across the
+full suite (no UB, no data races): `projection` (6), `partition` (15, including
+the new exact-size tests under real `std::thread::scope`), `threads` (6),
+`conditional_atomics` (8), `conditional_cow` (5), `branding` (7), `multi_token`
+(8), `slice_views` (4), `differential` (3) — evidence tier: machine-checked.
+**`cargo-semver-checks`** runs via the git-rev baseline (`--baseline-rev HEAD`):
+v0.5.0 → v0.6.0 reports no semver update required, confirming the [minor]
+classification; default registry comparison awaits publication, and
+semver-checks 0.48.0 skips its lints against the current nightly rustdoc-JSON
+format (tool/format mismatch, not a crate defect). **Nightly clippy**
+`--all-targets --all-features -- -D warnings` is clean (the local MSYS2 nightly
+bakes the stable channel, so the `doc_cfg` feature gate needs
+`RUSTC_BOOTSTRAP=1`).
+
+### Prior increments (historical)
 
 Current minor increment implemented and tracked in `checklist.md` /
 `backlog.md`. Stable gates green: `fmt --check`, `clippy --all-targets -D

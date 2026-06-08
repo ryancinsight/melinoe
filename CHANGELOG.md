@@ -4,6 +4,35 @@ All notable changes to `melinoe` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-06-04
+
+### Added
+
+- `region::ShardChunks` now implements `ExactSizeIterator` with an exact
+  `size_hint`. The remaining shard count (`ceil(remaining / chunk_size)`) is
+  reported up front and decrements as shards are yielded, so consumers that
+  `collect()` shards reserve capacity exactly and avoid reallocation.
+- Value-semantic tests pinning the exact-size contract, including the
+  decrement-as-consumed property and the empty-region (`0` shards) case.
+
+### Changed
+
+- The partition driver (`sync::partition_map_with` and its wrappers) now derives
+  worker-handle capacity from the `ShardChunks` iterator's exact size, making the
+  iterator the single source of truth for the shard count. The previously
+  duplicated `shard_count` ceiling-division helper and the internal
+  `ResolvedPartitionPlan` struct are removed; `PartitionPlan::resolve` now
+  returns only the per-shard chunk size. Behavior is unchanged: empty and
+  over-partitioned regions still reserve no surplus capacity and spawn no surplus
+  workers (pinned by the `partition_driver/empty_region` benchmark).
+
+### Fixed
+
+- `examples/codegen.rs` now declares `required-features = ["alloc"]` (it exercises
+  the alloc-gated `CellCowExt::borrow_cow` boundary). `cargo test
+  --no-default-features` previously failed to compile the example; the full
+  feature matrix now builds cleanly.
+
 ## [0.5.0] — 2026-06-04
 
 ### Added
@@ -130,6 +159,7 @@ All notable changes to `melinoe` are documented here. The format follows
   interior mutability, `CellSliceExt` zero-copy slice views, and `WriterShard`
   disjoint concurrent-write partitioning.
 
+[0.6.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.6.0
 [0.5.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.5.0
 [0.4.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.4.0
 [0.3.0]: https://github.com/ryancinsight/melinoe/releases/tag/v0.3.0

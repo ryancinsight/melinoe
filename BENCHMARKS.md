@@ -158,7 +158,7 @@ compute-bound write kernel:
 
 | Benchmark | Time | Contract measured |
 |-----------|------|-------------------|
-| `empty_region` | ~48 ns | 128 parts over 0 cells returns an empty result vector and spawns **no** worker shards (sub-µs proves no thread spawn occurred — a single spawn alone is microseconds) |
+| `empty_region` | ~42 ns | 128 parts over 0 cells returns an empty result vector and spawns **no** worker shards (sub-µs proves no thread spawn occurred — a single spawn alone is microseconds) |
 | `overrequested_parts` | ~0.52 ms | 128 parts over 8 cells reserves and spawns only the 8 non-empty shards (= `len`), not 128 — the time is dominated by those 8 `thread::scope` spawn/joins |
 | `available_parallelism` | measure locally | plans non-empty shards from reported hardware parallelism |
 | `chunk_size_16` | measure locally | plans exact fixed-size chunks and a final remainder chunk |
@@ -167,7 +167,11 @@ The ~10,000× gap between the two rows is itself the evidence: the empty path
 allocates no handle capacity and reaches no `scope.spawn`. This pins the
 memory-efficiency contract added in 0.2.1 — the handle vector is reserved to the
 actual non-empty shard count, not the requested partition count, and chunk size
-uses overflow-safe ceiling division (`1 + (len - 1) / parts`). The 0.3.0 rows
+uses overflow-safe ceiling division (`1 + (len - 1) / parts`). As of 0.6.0 that
+shard count is the `ShardChunks` iterator's exact size (`ExactSizeIterator`)
+rather than a separately maintained `shard_count` helper, so the reservation and
+the actual yield share one source of truth; the `empty_region` row confirms the
+empty case still reserves zero capacity and spawns nothing. The 0.3.0 rows
 exercise the same scheduler through typed hardware-parallel and chunk-size
 plans.
 

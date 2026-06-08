@@ -1,6 +1,6 @@
 [package]
 name = "melinoe"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 rust-version = "1.65"
 authors = ["Ryan Clanton <ryanclanton@outlook.com>"]
@@ -27,6 +27,13 @@ nightly = []
 
 [dev-dependencies]
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+# The codegen probe exercises the alloc-gated `CellCowExt::borrow_cow` boundary,
+# so it only compiles with `alloc`. Gating it keeps `--no-default-features`
+# (which excludes `alloc`) building cleanly across all targets.
+[[example]]
+name = "codegen"
+required-features = ["alloc"]
 
 [[bench]]
 name = "access"

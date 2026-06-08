@@ -45,25 +45,22 @@ impl PartitionPlan {
         Self::ChunkSize(nonzero_or_one(chunk_size))
     }
 
+    /// Resolve the plan to a concrete per-shard `chunk` size for `len` cells.
+    ///
+    /// The shard *count* is intentionally not computed here: it is derived once,
+    /// at the single source of truth, from the [`ShardChunks`](crate::region)
+    /// iterator's exact size when the driver reserves worker capacity.
     #[inline]
-    fn resolve(self, len: usize) -> ResolvedPartitionPlan {
-        let chunk = match self {
+    fn resolve(self, len: usize) -> usize {
+        match self {
             Self::Parts(parts) => chunk_for_parts(len, parts.get()),
             Self::AvailableParallelism => {
                 let parts = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
                 chunk_for_parts(len, parts)
             }
             Self::ChunkSize(chunk_size) => chunk_size.get(),
-        };
-        let shard_count = shard_count(len, chunk);
-        ResolvedPartitionPlan { chunk, shard_count }
+        }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct ResolvedPartitionPlan {
-    chunk: usize,
-    shard_count: usize,
 }
 
 #[inline]
@@ -80,15 +77,6 @@ fn chunk_for_parts(len: usize, parts: usize) -> usize {
         // `1 + (len - 1) / parts` because `usize::div_ceil` is not in the MSRV
         // and `len + parts - 1` can overflow for adversarial inputs.
         1 + (len - 1) / parts
-    }
-}
-
-#[inline]
-fn shard_count(len: usize, chunk: usize) -> usize {
-    if len == 0 {
-        0
-    } else {
-        1 + (len - 1) / chunk
     }
 }
 
@@ -169,12 +157,17 @@ where
     R: Send,
     F: Fn(usize, WriterShard<'_, 'brand, T>) -> R + Sync,
 {
-    let ResolvedPartitionPlan { chunk, shard_count } = plan.resolve(cells.len());
+    let chunk = plan.resolve(cells.len());
     std::thread::scope(|scope| {
         let f = &f;
-        let mut handles = Vec::with_capacity(shard_count);
+        // The chunks iterator is the single source of truth for the shard count:
+        // its exact size reserves worker-handle capacity to the actual non-empty
+        // shard count, so no thread is spawned and no capacity reserved for the
+        // empty tail of an over-partitioned region.
+        let chunks = WriterShard::new(cells).chunks(chunk);
+        let mut handles = Vec::with_capacity(chunks.len());
         let mut start = 0usize;
-        for shard in WriterShard::new(cells).chunks(chunk) {
+        for shard in chunks {
             let shard_start = start;
             start += shard.len();
             handles.push(scope.spawn(move || f(shard_start, shard)));

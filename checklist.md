@@ -1,8 +1,28 @@
 # Checklist — melinoe
 
-Target version: 0.5.0
+Target version: 0.6.0
 
-## Current micro-sprint
+## Current micro-sprint (0.6.0)
+
+- [x] [minor] Implement `ExactSizeIterator` + exact `size_hint` for
+  `region::ShardChunks` (`ceil(remaining / chunk)`, decrementing as consumed).
+- [x] [patch] Make the partition driver derive worker-handle capacity from the
+  `ShardChunks` exact size; remove the duplicated `shard_count` helper and the
+  internal `ResolvedPartitionPlan` struct (single source of truth for shard count).
+- [x] [patch] Add value-semantic tests for the exact-size contract and the
+  empty-region zero-shard case.
+- [x] [patch] Gate `examples/codegen.rs` with `required-features = ["alloc"]`
+  (it uses the alloc-gated `borrow_cow`); fixes the broken `--no-default-features`
+  example build.
+- [x] [patch] Refresh `BENCHMARKS.md` partition-driver section and `empty_region`
+  figure; bump version to 0.6.0 and sync CHANGELOG, backlog, gap audit.
+- [x] [patch] Run local gates: `cargo fmt --check`, `cargo clippy --all-targets
+  -- -D warnings`, `cargo test --features std`, `cargo doc --no-deps`, and the
+  feature matrix (`--no-default-features`, `--no-default-features --features alloc`).
+- [x] [patch] Rerun the `partition_driver` Criterion group (fast sweep); confirm
+  no regression (`empty_region` ~42 ns, still sub-µs / no spawn).
+
+## Prior micro-sprint (0.5.0)
 
 - [x] [minor] Add direct `CellCowExt::borrow_cow` / `retain_cow` methods for
   common static zero-copy and retain-once boundary cases.
@@ -57,12 +77,28 @@ Target version: 0.5.0
 - [x] [patch] Run Miri conditional atomic / conditional Cow suites under Stacked
   Borrows and Tree Borrows.
 
+## Residuals — resolved (0.6.0)
+
+- [x] [minor] `cargo-semver-checks` baseline established via git rev:
+  `cargo semver-checks check-release --baseline-rev HEAD` builds and parses both
+  v0.5.0 (baseline) and v0.6.0 (current) rustdoc and reports **no semver update
+  required** (0.6.0 introduces no breaking change). Default registry comparison
+  is still unavailable (crate unpublished); the `--baseline-rev` workflow is the
+  standing substitute. Note: semver-checks 0.48.0 skips all 253 lints against the
+  current nightly rustdoc-JSON format (a tool/format mismatch, not a crate
+  issue); the comparison nonetheless completes cleanly.
+- [x] [patch] Miri clean across the full suite under this nightly (no UB, no data
+  races): `projection` (6), `partition` (15, incl. the new exact-size tests with
+  real threads), `threads` (6), `conditional_atomics` (8), `conditional_cow` (5),
+  `branding` (7), `multi_token` (8), `slice_views` (4), `differential` (3).
+- [x] [patch] Nightly `cargo clippy --all-targets --all-features -- -D warnings`
+  is clean. The local MSYS2-packaged nightly bakes the stable release channel, so
+  `#![feature(doc_cfg)]` requires `RUSTC_BOOTSTRAP=1`; with that set the
+  all-features lint passes with zero warnings.
+
 ## Next concrete increment
 
-- [ ] [minor] Provide a baseline rev or registry release for
-  `cargo-semver-checks`. Tool is installed, but `melinoe` is not found in the
-  registry, so default comparison cannot run.
-- [ ] [patch] Run Miri on projection paths after the partition suite.
-- [ ] [patch] Run nightly-only `cargo clippy --all-targets --all-features -- -D
-  warnings` on a nightly toolchain; stable fails because the documented
-  `nightly` feature enables `#![feature(doc_cfg)]`.
+- [ ] [patch] On registry publication, switch `cargo-semver-checks` from the
+  `--baseline-rev` workflow to the default crates.io baseline, and re-run once
+  semver-checks supports the newer rustdoc-JSON format so lints execute rather
+  than skip.
