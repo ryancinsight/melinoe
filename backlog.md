@@ -13,6 +13,11 @@
 
 ## Closed
 
+- <a id="apollo-boundary-contract"></a>[patch] Apollo-facing zero-copy scratch
+  boundary contract tests delivered. `Borrowed` ZST policy returns a
+  pointer-identical `Cow::Borrowed` with zero element clones; `Retained` ZST
+  policy returns independent owned storage with exactly one clone per element.
+  Evidence: value-semantic integration tests in `tests/apollo_boundary.rs`.
 - <a id="residuals-0-6-0"></a>[patch] 0.6.0 verification residuals resolved:
   (1) `cargo-semver-checks` baseline via `--baseline-rev HEAD` — v0.5.0→v0.6.0
   reports no semver update required; (2) Miri clean across all nine test suites

@@ -17,6 +17,14 @@ defect in `examples/codegen.rs`. The prior increment audited `src/cell/cow.rs`,
 `tests/conditional_atomics.rs`, and the Mnemosyne / conditional-atomic Criterion
 harnesses.
 
+The Apollo provider increment adds `tests/apollo_boundary.rs` as an explicit
+consumer contract for branded scratch boundaries. It verifies that the static
+`Borrowed` ZST policy returns a pointer-identical `Cow::Borrowed` with zero
+element clones, while the static `Retained` ZST policy produces independent
+owned storage with exactly one clone per element. Evidence tier:
+value-semantic integration tests plus the existing ZST/type-level policy
+surface.
+
 ## Findings
 
 ### Soundness — clean

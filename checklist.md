@@ -4,6 +4,10 @@ Target version: 0.6.0
 
 ## Current micro-sprint (0.6.0)
 
+- [x] [patch] Add Apollo-facing `tests/apollo_boundary.rs` contract tests for
+  branded `Cow` scratch boundaries: static borrowed policy performs zero clones
+  and pointer-identical borrow; static retained policy clones exactly once per
+  element into independent owned storage.
 - [x] [minor] Implement `ExactSizeIterator` + exact `size_hint` for
   `region::ShardChunks` (`ceil(remaining / chunk)`, decrementing as consumed).
 - [x] [patch] Make the partition driver derive worker-handle capacity from the

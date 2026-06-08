@@ -4,6 +4,13 @@ All notable changes to `melinoe` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- [patch] Apollo-facing branded `Cow` boundary contract tests proving zero-copy
+  borrowed scratch views and exactly-once retained ownership.
+
 ## [0.6.0] — 2026-06-04
 
 ### Added
