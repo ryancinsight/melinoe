@@ -3,8 +3,8 @@
 ## Atlas in-house replacement roadmap — melinoe slice [minor]
 
 melinoe is the capability/ownership-proof foundation. The Atlas GPU program
-(coeus/apollo on wgpu + cuda-oxide, with mnemosyne device pools) wants compile-time
-proofs for device-buffer ownership:
+(the `hephaestus` device substrate — atlas ADR 0001 — used by coeus/apollo on wgpu +
+CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer ownership:
 - [ ] [minor] Stage D1 support: a documented device-buffer ownership-transfer pattern —
   moving a `SyncRegionToken` transfers write capability across host/device/stream; a
   `SharedReadToken` fans out concurrent device reads; `BrandedAtomic` covers fence/
