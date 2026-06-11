@@ -43,5 +43,6 @@ mod partition;
 #[cfg(feature = "std")]
 pub use partition::{
     partition_for_each, partition_for_each_available, partition_for_each_with, partition_map,
-    partition_map_available, partition_map_with, PartitionPlan,
+    partition_map_available, partition_map_with, register_parallel_executor, ParallelExecutorFn,
+    PartitionPlan,
 };

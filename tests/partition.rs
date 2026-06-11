@@ -124,8 +124,26 @@ mod concurrent {
     use super::*;
     use melinoe::sync::{
         partition_for_each, partition_for_each_available, partition_for_each_with, partition_map,
-        partition_map_available, partition_map_with, PartitionPlan,
+        partition_map_available, partition_map_with, register_parallel_executor, PartitionPlan,
     };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static EXECUTED_TASKS: AtomicUsize = AtomicUsize::new(0);
+
+    unsafe fn deterministic_executor(
+        num_tasks: usize,
+        task_fn: unsafe fn(usize, *mut ()),
+        data: *mut (),
+    ) {
+        EXECUTED_TASKS.store(num_tasks, Ordering::SeqCst);
+        for index in 0..num_tasks {
+            // SAFETY: this deterministic executor runs every task index exactly
+            // once before returning, satisfying `ParallelExecutorFn`.
+            unsafe {
+                task_fn(index, data);
+            }
+        }
+    }
 
     /// Four threads concurrently fill disjoint partitions with global indices;
     /// the joined region equals the identity mapping.
@@ -172,6 +190,32 @@ mod concurrent {
             // Per-shard partial sums add up to the closed form 0+1+..+(N-1).
             let expected = (N as u64 - 1) * N as u64 / 2;
             assert_eq!(sums.iter().sum::<u64>(), expected);
+        });
+    }
+
+    #[test]
+    fn registered_executor_drives_partition_map() {
+        const N: usize = 32;
+        EXECUTED_TASKS.store(0, Ordering::SeqCst);
+        register_parallel_executor(deterministic_executor);
+
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> =
+                (0..N).map(|_| MelinoeCell::new(usize::MAX)).collect();
+
+            let lengths = partition_map(&mut cells, 4, |start, mut shard| {
+                for (offset, slot) in shard.iter_mut().enumerate() {
+                    *slot = start + offset;
+                }
+                shard.len()
+            });
+
+            assert_eq!(EXECUTED_TASKS.load(Ordering::SeqCst), 4);
+            assert_eq!(lengths, vec![8, 8, 8, 8]);
+            let snap = token.share();
+            for (index, cell) in cells.iter().enumerate() {
+                assert_eq!(*cell.borrow(snap), index);
+            }
         });
     }
 

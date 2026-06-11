@@ -198,7 +198,7 @@
 //!
 //! The crate is `#![no_std]` by default and uses no global allocator of its own.
 #![no_std]
-#![cfg_attr(any(docsrs, feature = "nightly"), feature(doc_cfg))]
+#![cfg_attr(doc_cfg_active, feature(doc_cfg))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -238,3 +238,7 @@ pub use region::WriterShard;
 pub use token::{
     brand_scope, ExclusiveToken, InvariantLifetime, ReadPermit, SharedReadToken, WritePermit,
 };
+
+#[doc(inline)]
+#[cfg(feature = "std")]
+pub use sync::{register_parallel_executor, ParallelExecutorFn};

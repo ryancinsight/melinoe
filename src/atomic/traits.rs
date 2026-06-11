@@ -6,11 +6,11 @@ pub(crate) mod sealed {
     pub trait Sealed {}
 }
 
-/// An atomic primitive abstracted over its value type, so [`BrandedAtomic`] is
+/// An atomic primitive abstracted over its value type, so [`crate::BrandedAtomic`] is
 /// one generic implementation rather than a type-numbered family.
 ///
 /// Sealed: implemented only for the standard-library atomics. The methods are
-/// the crate-internal mediation surface; users call [`BrandedAtomic`].
+/// the crate-internal mediation surface; users call [`crate::BrandedAtomic`].
 pub trait Atomic: sealed::Sealed {
     /// The plain value carried by this atomic (e.g. `u64` for `AtomicU64`).
     type Value: Copy;

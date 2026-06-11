@@ -1,6 +1,7 @@
 //! `std`-gated drivers that run one [`WriterShard`] per thread concurrently.
 
 use core::num::NonZeroUsize;
+use core::sync::atomic::{AtomicPtr, Ordering};
 use std::vec::Vec;
 
 use crate::cell::MelinoeCell;
@@ -135,6 +136,26 @@ where
     partition_map_with(cells, PartitionPlan::parts(parts), f)
 }
 
+/// Signature for a custom parallel executor.
+///
+/// # Safety
+/// The executor must block the calling thread until all `num_tasks` invocations
+/// of `task_fn` have completed. Each task is invoked with a unique index in
+/// `0..num_tasks` and the provided `data` raw pointer.
+pub type ParallelExecutorFn =
+    unsafe fn(num_tasks: usize, task_fn: unsafe fn(usize, *mut ()), data: *mut ());
+
+static PARALLEL_EXECUTOR: AtomicPtr<()> = AtomicPtr::new(core::ptr::null_mut());
+
+/// Register a global parallel executor to run `partition_map` chunks.
+///
+/// If registered, `partition_map_with` will execute chunks on the provided
+/// executor instead of spawning raw OS threads via `std::thread::scope`.
+#[inline]
+pub fn register_parallel_executor(executor: ParallelExecutorFn) {
+    PARALLEL_EXECUTOR.store(executor as *mut (), Ordering::Release);
+}
+
 /// Split `cells` according to `plan` and run `f` on each disjoint shard
 /// concurrently, returning per-shard results in partition order.
 ///
@@ -158,14 +179,80 @@ where
     F: Fn(usize, WriterShard<'_, 'brand, T>) -> R + Sync,
 {
     let chunk = plan.resolve(cells.len());
+    let chunks = WriterShard::new(cells).chunks(chunk);
+    let num_chunks = chunks.len();
+    if num_chunks == 0 {
+        return Vec::new();
+    }
+
+    let executor_ptr = PARALLEL_EXECUTOR.load(Ordering::Acquire);
+    if !executor_ptr.is_null() {
+        let executor: ParallelExecutorFn = unsafe { core::mem::transmute(executor_ptr) };
+
+        let mut out: Vec<core::mem::MaybeUninit<R>> = Vec::with_capacity(num_chunks);
+        unsafe {
+            out.set_len(num_chunks);
+        }
+
+        struct Context<'a, 'brand, T, R, F> {
+            cells_ptr: *mut MelinoeCell<'brand, T>,
+            cells_len: usize,
+            chunk_size: usize,
+            f: &'a F,
+            out_ptr: *mut core::mem::MaybeUninit<R>,
+        }
+
+        let mut ctx = Context {
+            cells_ptr: cells.as_mut_ptr(),
+            cells_len: cells.len(),
+            chunk_size: chunk,
+            f: &f,
+            out_ptr: out.as_mut_ptr(),
+        };
+
+        unsafe fn task_wrapper<'brand, T, R, F>(index: usize, data: *mut ())
+        where
+            T: Send,
+            R: Send,
+            F: Fn(usize, WriterShard<'_, 'brand, T>) -> R + Sync,
+        {
+            let ctx = unsafe { &mut *(data as *mut Context<'_, 'brand, T, R, F>) };
+            let start = index * ctx.chunk_size;
+            let end = (start + ctx.chunk_size).min(ctx.cells_len);
+
+            // SAFETY: the custom parallel executor guarantees that tasks are
+            // run concurrently but without overlapping slice index ranges, and
+            // each task index in 0..num_tasks is executed exactly once.
+            let chunk_ref =
+                unsafe { core::slice::from_raw_parts_mut(ctx.cells_ptr.add(start), end - start) };
+            let shard = WriterShard::new(chunk_ref);
+            let result = (ctx.f)(start, shard);
+            unsafe {
+                ctx.out_ptr
+                    .add(index)
+                    .write(core::mem::MaybeUninit::new(result));
+            }
+        }
+
+        unsafe {
+            executor(
+                num_chunks,
+                task_wrapper::<T, R, F>,
+                &mut ctx as *mut Context<'_, 'brand, T, R, F> as *mut (),
+            );
+        }
+
+        // SAFETY: the custom parallel executor blocks until all tasks complete.
+        // Therefore, every slot in the `out` vector has been initialized.
+        let mut out = core::mem::ManuallyDrop::new(out);
+        return unsafe {
+            Vec::from_raw_parts(out.as_mut_ptr().cast::<R>(), num_chunks, out.capacity())
+        };
+    }
+
     std::thread::scope(|scope| {
         let f = &f;
-        // The chunks iterator is the single source of truth for the shard count:
-        // its exact size reserves worker-handle capacity to the actual non-empty
-        // shard count, so no thread is spawned and no capacity reserved for the
-        // empty tail of an over-partitioned region.
-        let chunks = WriterShard::new(cells).chunks(chunk);
-        let mut handles = Vec::with_capacity(chunks.len());
+        let mut handles = Vec::with_capacity(num_chunks);
         let mut start = 0usize;
         for shard in chunks {
             let shard_start = start;

@@ -8,6 +8,7 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Added
 
+- [patch] `std` partition drivers can register a custom blocking parallel executor, allowing Moirai to route branded `partition_map` shards through its scheduler while preserving disjoint `WriterShard` semantics.
 - [patch] Apollo-facing branded `Cow` boundary contract tests proving zero-copy
   borrowed scratch views and exactly-once retained ownership.
 

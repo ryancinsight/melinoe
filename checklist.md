@@ -4,6 +4,12 @@ Target version: 0.6.0
 
 ## Current micro-sprint (0.6.0)
 
+- [x] [patch] Add `ParallelExecutorFn` and `register_parallel_executor` for
+  `std` partition drivers so Moirai can provide the shard executor instead of
+  Melinoe always spawning raw scoped threads.
+- [x] [patch] Add a value-semantic registered-executor partition test proving
+  the executor receives the resolved shard count and that disjoint branded
+  writes preserve the identity mapping.
 - [x] [patch] Add Apollo-facing `tests/apollo_boundary.rs` contract tests for
   branded `Cow` scratch boundaries: static borrowed policy performs zero clones
   and pointer-identical borrow; static retained policy clones exactly once per

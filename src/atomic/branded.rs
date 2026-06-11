@@ -2,9 +2,9 @@ use core::fmt;
 use core::marker::PhantomData;
 use core::sync::atomic::Ordering;
 
-use crate::token::{InvariantLifetime, ReadPermit, WritePermit};
-use super::traits::{Atomic, AtomicInt};
 use super::order::AtomicOrder;
+use super::traits::{Atomic, AtomicInt};
+use crate::token::{InvariantLifetime, ReadPermit, WritePermit};
 
 /// A branded atomic whose access cost is conditional on the capability presented:
 /// plain in the exclusive phase, atomic in the shared phase.
