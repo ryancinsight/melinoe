@@ -111,6 +111,11 @@ arity-specific `brand_scopeN`/`CellN` variants:
   ownership boundary. `Borrowed` and `Retained` are ZST policies for static
   retain decisions; `RetainDecision` covers data-dependent retention by routing
   to the same sealed policy bodies.
+* **Thread-local value caches** — [`thread_cached!`] declares a per-thread
+  `Copy` value cache with nightly `#[thread_local]` storage when the compiler
+  supports it and a stable `std::thread_local!` fallback otherwise. It is the
+  shared Atlas primitive for repeated node/CPU/shard lookups without duplicating
+  cfg-paired TLS boilerplate in each consumer.
 
 ## Quick start
 
@@ -321,6 +326,7 @@ brand_scope(|token| {
 ```
 
 [`PartitionPlan`]: https://docs.rs/melinoe/latest/melinoe/sync/enum.PartitionPlan.html
+[`thread_cached!`]: https://docs.rs/melinoe/latest/melinoe/macro.thread_cached.html
 
 ## Integration with Mnemosyne
 

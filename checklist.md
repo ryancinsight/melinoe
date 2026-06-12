@@ -1,14 +1,17 @@
 # Checklist — melinoe
 
-Target version: 0.6.0
+Target version: 0.7.0
 
-## Current micro-sprint (0.6.0)
+## Current micro-sprint (0.7.0)
 
 - [x] [patch] Split `region` into `shard` and `chunks` leaf modules, preserving
   public re-exports while separating shard capability logic from exact-size
   chunk iteration.
 - [x] [patch] Harden `partition_driver` benchmark inputs with `black_box`,
   rerun the group, and refresh `BENCHMARKS.md` partition-driver figures.
+- [x] [minor] Add `thread_cached!` as the shared per-thread `Copy` value-cache
+  primitive for Atlas consumers, with nightly TLS cfg support and stable
+  `std::thread_local!` fallback.
 - [x] [patch] Add default `parallel` and `mnemosyne-memory` feature markers;
   `mnemosyne-memory` forwards to `alloc` for branded Cow/cell memory-boundary
   support without depending back on Mnemosyne.

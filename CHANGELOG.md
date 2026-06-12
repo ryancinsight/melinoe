@@ -4,7 +4,7 @@ All notable changes to `melinoe` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.0] — 2026-06-12
 
 ### Added
 
@@ -21,6 +21,10 @@ All notable changes to `melinoe` are documented here. The format follows
 - [patch] `std` partition drivers can register a custom blocking parallel executor, allowing Moirai to route branded `partition_map` shards through its scheduler while preserving disjoint `WriterShard` semantics.
 - [patch] Apollo-facing branded `Cow` boundary contract tests proving zero-copy
   borrowed scratch views and exactly-once retained ownership.
+- [minor] `thread_cached!`, a single-source macro for per-thread `Copy` value
+  caches with nightly `#[thread_local]` storage when available and stable
+  `std::thread_local!` fallback. This replaces duplicated themis/mnemosyne
+  thread-local cache patterns without adding runtime indirection.
 
 ### Changed
 
@@ -31,6 +35,9 @@ All notable changes to `melinoe` are documented here. The format follows
 - [patch] Hardened the `partition_driver` benchmark by black-boxing the input
   slice, preventing the empty-region row from collapsing to a compile-time-known
   `Vec::new()` result; refreshed the partition-driver measurements.
+- [patch] `build.rs` now declares and emits `nightly_tls_active` independently
+  from `doc_cfg_active`, so TLS fast-path cfg is available without requiring the
+  `nightly` documentation feature.
 
 ## [0.6.0] — 2026-06-04
 

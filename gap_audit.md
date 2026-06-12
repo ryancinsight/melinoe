@@ -31,6 +31,12 @@ still held module documentation, the `WriterShard` capability, and the
 and re-export root, with `region::shard` owning shard capability behavior and
 `region::chunks` owning exact-size chunk iteration.
 
+The same pass closed the cross-repo thread-local cache duplication: themis and
+mnemosyne carried equivalent nightly-`#[thread_local]` / stable
+`std::thread_local!` cache pairs for `Copy` values. `thread_cached!` now provides
+one declaration-site TLS primitive with same-thread reuse, overwrite, and
+cross-thread independence tests.
+
 ## Findings
 
 ### Default provider feature policy — closed
@@ -152,6 +158,19 @@ partition-driver benchmark was hardened to black-box the input slice before the
 refreshed run, preventing the empty-region row from collapsing to a
 compile-time-known `Vec::new()` result.
 
+### Thread-local cache duplication — gap closed (0.7.0)
+
+Repeated per-thread value caches in Atlas consumers used the same two-way cfg
+shape: nightly `#[thread_local] static mut Option<T>` for the fast path and
+stable `std::thread_local!` with `Cell<Option<T>>` fallback. A normal generic
+type cannot declare a fresh static per cache site, so the canonical abstraction
+is a small declaration macro. Added `thread_cached!`, which emits one module per
+cache site with `get_or_init` and `set` for `Copy` values. `build.rs` now
+declares `nightly_tls_active` separately from `doc_cfg_active`, so TLS fast-path
+cfg does not require enabling the nightly documentation feature. Evidence tier:
+value-semantic integration tests for initialization, same-thread reuse,
+overwrite, and per-thread independence.
+
 ### Feature hygiene — gap closed (0.6.0)
 
 `examples/codegen.rs` used the alloc-gated `CellCowExt::borrow_cow` but carried no
@@ -175,14 +194,15 @@ matrix (`--no-default-features`, `--no-default-features --features alloc`,
 
 ## Status
 
-0.6.0 increment implemented and tracked in `checklist.md` / `backlog.md`.
+0.7.0 increment implemented and tracked in `checklist.md` / `backlog.md`.
 Stable gates green: `fmt --check`, `clippy --all-targets -- -D warnings`,
-`test --features std` (88 passed), `doc --no-deps`, and the full feature matrix
-(`--no-default-features`, `--no-default-features --features alloc`). The
+`test`, `doc --no-deps`, and the full feature matrix (`--no-default-features`,
+`--no-default-features --features alloc`). The
 `partition_driver` Criterion group was rerun (fast sweep); `empty_region`
 (~1.0 ns with a black-boxed input slice) confirms the no-spawn / zero-capacity
-contract survives the SSOT refactor. Version bumped 0.5.0 → 0.6.0 ([minor], additive public API:
-`ShardChunks: ExactSizeIterator`). CHANGELOG synchronized.
+contract survives the SSOT refactor. Version is 0.7.0 ([minor], additive public
+API: `thread_cached!`; internal region hierarchy split preserves public
+exports). CHANGELOG synchronized.
 
 All prior verification residuals are now resolved. **Miri** is clean across the
 full suite (no UB, no data races): `projection` (6), `partition` (15, including

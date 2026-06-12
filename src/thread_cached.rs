@@ -4,7 +4,8 @@
 //!
 //! Thread-local statics cannot be expressed as a generic type — the storage
 //! must be declared per site with the toolchain-appropriate attribute — so the
-//! single authoritative implementation is the [`thread_cached!`] macro, which
+//! single authoritative implementation is the
+//! [`thread_cached!`](crate::thread_cached!) macro, which
 //! expands to a module owning the cfg-paired storage plus a typed accessor
 //! surface. Boilerplate generation is the sanctioned macro use here: the
 //! variation (nightly fast path vs stable fallback) is a *declaration-site*
