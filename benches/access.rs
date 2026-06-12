@@ -26,6 +26,7 @@
 // The `criterion_group!` macro expands to an undocumented `benches` function;
 // the crate's `missing_docs = "deny"` lint does not apply to generated harness code.
 #![allow(missing_docs)]
+#![cfg_attr(nightly_tls_active, feature(thread_local))]
 
 use std::cell::{Cell, RefCell};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -38,6 +39,10 @@ use melinoe::sync::{
     partition_map_available, partition_map_with, PartitionPlan,
 };
 use melinoe::{brand_scope, MelinoeCell};
+
+melinoe::thread_cached! {
+    mod bench_cached_u64: u64;
+}
 
 /// Inner-loop length per sampled iteration (amortises criterion's per-sample
 /// overhead so the per-access cost dominates the measurement).
@@ -181,6 +186,55 @@ fn bench_interior_mut(c: &mut Criterion) {
                 cell.set(cell.get().wrapping_add(black_box(1)));
             }
             black_box(cell.get())
+        });
+    });
+
+    g.finish();
+}
+
+fn bench_thread_cached(c: &mut Criterion) {
+    const OPS: u64 = 4096;
+    let mut g = c.benchmark_group("thread_cached_4096x");
+    g.throughput(Throughput::Elements(OPS));
+
+    g.bench_function("get_hit", |b| {
+        bench_cached_u64::set(black_box(7));
+        b.iter(|| {
+            let mut acc = 0u64;
+            for _ in 0..OPS {
+                acc = acc.wrapping_add(bench_cached_u64::get().unwrap_or(0));
+            }
+            black_box(acc)
+        });
+    });
+
+    g.bench_function("get_or_init_hit", |b| {
+        bench_cached_u64::set(black_box(11));
+        b.iter(|| {
+            let mut acc = 0u64;
+            for _ in 0..OPS {
+                acc = acc.wrapping_add(bench_cached_u64::get_or_init(|| black_box(13)));
+            }
+            black_box(acc)
+        });
+    });
+
+    g.bench_function("set", |b| {
+        b.iter(|| {
+            for i in 0..OPS {
+                bench_cached_u64::set(black_box(i));
+            }
+            black_box(bench_cached_u64::get())
+        });
+    });
+
+    g.bench_function("clear_set", |b| {
+        b.iter(|| {
+            for i in 0..OPS {
+                bench_cached_u64::clear();
+                bench_cached_u64::set(black_box(i));
+            }
+            black_box(bench_cached_u64::get())
         });
     });
 
@@ -388,6 +442,7 @@ criterion_group!(
     bench_increment,
     bench_read,
     bench_interior_mut,
+    bench_thread_cached,
     bench_partitioned_writes,
     bench_partition_driver
 );

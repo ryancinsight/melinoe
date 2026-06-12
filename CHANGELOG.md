@@ -9,11 +9,12 @@ All notable changes to `melinoe` are documented here. The format follows
 ### Added
 
 - [minor] `thread_cached!` macro (`thread_cached` module): per-thread cached
-  value with `get_or_init`/`set`, expanding to the nightly-`#[thread_local]` /
-  stable-`thread_local!` cfg pair. Consolidates the identical caching pattern
-  themis (`CACHED_NODE`) and mnemosyne (`CACHED_CPU_ID`) carried independently;
-  storage is `Option<T>`, never a sentinel. Build-script `nightly_tls_active`
-  detection added (probe no longer gated behind the `nightly` feature).
+  value with `get_or_init`/`set`/`get`/`clear`, expanding to the
+  nightly-`#[thread_local]` / stable-`thread_local!` cfg pair. Consolidates the
+  identical caching pattern themis (`CACHED_NODE`) and mnemosyne
+  (`CACHED_CPU_ID`) carried independently; storage is `Option<T>`, never a
+  sentinel. Build-script `nightly_tls_active` detection added (probe no longer
+  gated behind the `nightly` feature).
 - [patch] Default `parallel` and `mnemosyne-memory` feature markers. The
   `mnemosyne-memory` feature forwards to `alloc`, preserving branded Cow/cell
   memory-boundary support without introducing a dependency cycle back to
@@ -21,11 +22,6 @@ All notable changes to `melinoe` are documented here. The format follows
 - [patch] `std` partition drivers can register a custom blocking parallel executor, allowing Moirai to route branded `partition_map` shards through its scheduler while preserving disjoint `WriterShard` semantics.
 - [patch] Apollo-facing branded `Cow` boundary contract tests proving zero-copy
   borrowed scratch views and exactly-once retained ownership.
-- [minor] `thread_cached!`, a single-source macro for per-thread `Copy` value
-  caches with nightly `#[thread_local]` storage when available and stable
-  `std::thread_local!` fallback. This replaces duplicated themis/mnemosyne
-  thread-local cache patterns without adding runtime indirection.
-
 ### Changed
 
 - [patch] Split `region` into `region::shard` and `region::chunks` leaf modules
@@ -35,6 +31,8 @@ All notable changes to `melinoe` are documented here. The format follows
 - [patch] Hardened the `partition_driver` benchmark by black-boxing the input
   slice, preventing the empty-region row from collapsing to a compile-time-known
   `Vec::new()` result; refreshed the partition-driver measurements.
+- [patch] Added `thread_cached_4096x` benchmark coverage for `get`,
+  `get_or_init`, `set`, and `clear`/`set` on the stable TLS fallback path.
 - [patch] `build.rs` now declares and emits `nightly_tls_active` independently
   from `doc_cfg_active`, so TLS fast-path cfg is available without requiring the
   `nightly` documentation feature.

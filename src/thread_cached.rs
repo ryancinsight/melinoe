@@ -14,14 +14,18 @@
 //! The cache always stores `Option<T>` — "uninitialized" is a real state, not
 //! a sentinel value carved out of `T`'s domain.
 
-/// Declares a per-thread cached value with `get_or_init` / `set` accessors.
+/// Declares a per-thread cached value with `get_or_init` / `set` / `get` /
+/// `clear` accessors.
 ///
 /// Expands to a module named `$name` containing the thread-local storage and
-/// two functions:
+/// four functions:
 ///
 /// - `get_or_init(init: impl FnOnce() -> T) -> T` — returns the cached value,
 ///   computing and caching it on first access from the calling thread.
 /// - `set(value: T)` — overwrites the calling thread's cached value.
+/// - `get() -> Option<T>` — reads the calling thread's cached value without
+///   initializing it.
+/// - `clear()` — returns the calling thread's cache to the uninitialized state.
 ///
 /// `T` must be `Copy`.
 ///
@@ -49,7 +53,10 @@
 ///
 /// assert_eq!(cached_shard::get_or_init(|| 7), 7);
 /// cached_shard::set(11);
-/// assert_eq!(cached_shard::get_or_init(|| unreachable!()), 11);
+/// assert_eq!(cached_shard::get(), Some(11));
+/// cached_shard::clear();
+/// assert_eq!(cached_shard::get(), None);
+/// assert_eq!(cached_shard::get_or_init(|| 13), 13);
 /// ```
 #[macro_export]
 macro_rules! thread_cached {

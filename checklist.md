@@ -12,6 +12,8 @@ Target version: 0.7.0
 - [x] [minor] Add `thread_cached!` as the shared per-thread `Copy` value-cache
   primitive for Atlas consumers, with nightly TLS cfg support and stable
   `std::thread_local!` fallback.
+- [x] [patch] Add and rerun `thread_cached_4096x` Criterion coverage for
+  cached hit, overwrite, and invalidation paths; update `BENCHMARKS.md`.
 - [x] [patch] Add default `parallel` and `mnemosyne-memory` feature markers;
   `mnemosyne-memory` forwards to `alloc` for branded Cow/cell memory-boundary
   support without depending back on Mnemosyne.

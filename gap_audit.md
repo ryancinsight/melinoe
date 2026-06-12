@@ -169,7 +169,10 @@ cache site with `get_or_init` and `set` for `Copy` values. `build.rs` now
 declares `nightly_tls_active` separately from `doc_cfg_active`, so TLS fast-path
 cfg does not require enabling the nightly documentation feature. Evidence tier:
 value-semantic integration tests for initialization, same-thread reuse,
-overwrite, and per-thread independence.
+overwrite, and per-thread independence. Benchmark evidence:
+`thread_cached_4096x` covers cached `get`, cached `get_or_init`, `set`, and
+`clear`/`set`; the stable fallback measures sub-nanosecond to ~1.1 ns per
+operation on this host.
 
 ### Feature hygiene — gap closed (0.6.0)
 
