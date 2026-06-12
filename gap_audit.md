@@ -27,6 +27,16 @@ surface.
 
 ## Findings
 
+### Default provider feature policy — closed
+
+Melinoe did not expose the Atlas-wide default `parallel` and
+`mnemosyne-memory` feature contract. Added zero-dependency `parallel` and a
+`mnemosyne-memory` feature forwarding to `alloc`, which is the minimum memory
+surface required by branded Cow/cell ownership boundaries. Evidence tier:
+Cargo metadata audit across Apollo, Leto, Hermes, Mnemosyne, Moirai, Melinoe,
+Themis, and Hephaestus; formatting and diff checks. Compile/test residual:
+target lockfile access denied before rustc.
+
 ### Soundness — clean
 
 The four `unsafe` sites (token minting, cell access, `from_mut`, `Send`/`Sync`

@@ -23,6 +23,10 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Closed
 
+- <a id="default-provider-feature-policy"></a>[patch] Default `parallel` and
+  `mnemosyne-memory` feature markers delivered. `mnemosyne-memory` forwards to
+  `alloc`; no dependency cycle to Mnemosyne is introduced. Evidence: Atlas
+  feature-policy metadata audit, fmt, and diff checks.
 - <a id="apollo-boundary-contract"></a>[patch] Apollo-facing zero-copy scratch
   boundary contract tests delivered. `Borrowed` ZST policy returns a
   pointer-identical `Cow::Borrowed` with zero element clones; `Retained` ZST

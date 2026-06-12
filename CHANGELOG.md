@@ -8,6 +8,10 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Added
 
+- [patch] Default `parallel` and `mnemosyne-memory` feature markers. The
+  `mnemosyne-memory` feature forwards to `alloc`, preserving branded Cow/cell
+  memory-boundary support without introducing a dependency cycle back to
+  Mnemosyne.
 - [patch] `std` partition drivers can register a custom blocking parallel executor, allowing Moirai to route branded `partition_map` shards through its scheduler while preserving disjoint `WriterShard` semantics.
 - [patch] Apollo-facing branded `Cow` boundary contract tests proving zero-copy
   borrowed scratch views and exactly-once retained ownership.

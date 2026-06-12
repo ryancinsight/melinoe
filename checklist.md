@@ -4,6 +4,13 @@ Target version: 0.6.0
 
 ## Current micro-sprint (0.6.0)
 
+- [x] [patch] Add default `parallel` and `mnemosyne-memory` feature markers;
+  `mnemosyne-memory` forwards to `alloc` for branded Cow/cell memory-boundary
+  support without depending back on Mnemosyne.
+- [x] Evidence: `cargo metadata --no-deps --locked --format-version 1`; full
+  Atlas feature-policy metadata audit; `cargo fmt --check`; `git diff --check`.
+  Residual: compile/test gates were blocked before rustc by denied access to
+  `target/debug/.cargo-lock`.
 - [x] [patch] Add `ParallelExecutorFn` and `register_parallel_executor` for
   `std` partition drivers so Moirai can provide the shard executor instead of
   Melinoe always spawning raw scoped threads.
