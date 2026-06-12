@@ -62,3 +62,15 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   reserves worker handles to the actual non-empty shard count.
 - <a id="guard-projection"></a>[minor] Zero-copy guard projection delivered in
   0.2.0 with `MelinoeRef`/`MelinoeMut` `map` and `map_split`.
+
+## Cross-repo filing (2026-06-12 stack audit)
+
+- [ ] [minor] Shared thread-local value-cache utility: themis (`CACHED_NODE_NIGHTLY`
+  in `src/query.rs:5-12`) and mnemosyne (`CACHED_CPU_ID` in
+  `mnemosyne-local/src/per_cpu.rs:122-129`) carry the identical
+  nightly-`#[thread_local] static mut` / stable-`std::thread_local!` caching
+  pattern. Second occurrence triggers consolidation: provide one generic
+  melinoe primitive (e.g. `ThreadCached<T: Copy>` with `get_or_init` /
+  `refresh`) both consumers adopt, deleting the per-repo copies in the same
+  coordinated change. Drivers: themis, mnemosyne; moirai's
+  `thread_local_static!` macro is the third near-instance to evaluate.
