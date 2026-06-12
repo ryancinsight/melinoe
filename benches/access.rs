@@ -326,8 +326,11 @@ fn bench_partition_driver(c: &mut Criterion) {
         brand_scope(|_token| {
             let mut cells: Vec<MelinoeCell<'_, u64>> = Vec::new();
             b.iter(|| {
-                let results: Vec<usize> =
-                    partition_map(&mut cells, black_box(128), |_start, shard| shard.len());
+                let results: Vec<usize> = partition_map(
+                    black_box(cells.as_mut_slice()),
+                    black_box(128),
+                    |_start, shard| shard.len(),
+                );
                 black_box(results.len())
             });
         });
@@ -338,8 +341,11 @@ fn bench_partition_driver(c: &mut Criterion) {
             let mut cells: Vec<MelinoeCell<'_, u64>> =
                 (0..8).map(|_| MelinoeCell::new(0)).collect();
             b.iter(|| {
-                let results: Vec<usize> =
-                    partition_map(&mut cells, black_box(128), |_start, shard| shard.len());
+                let results: Vec<usize> = partition_map(
+                    black_box(cells.as_mut_slice()),
+                    black_box(128),
+                    |_start, shard| shard.len(),
+                );
                 black_box(results)
             });
         });
@@ -351,7 +357,9 @@ fn bench_partition_driver(c: &mut Criterion) {
                 (0..128).map(|_| MelinoeCell::new(0)).collect();
             b.iter(|| {
                 let results: Vec<usize> =
-                    partition_map_available(&mut cells, |_start, shard| shard.len());
+                    partition_map_available(black_box(cells.as_mut_slice()), |_start, shard| {
+                        shard.len()
+                    });
                 black_box(results)
             });
         });
@@ -363,7 +371,7 @@ fn bench_partition_driver(c: &mut Criterion) {
                 (0..128).map(|_| MelinoeCell::new(0)).collect();
             b.iter(|| {
                 let results: Vec<usize> = partition_map_with(
-                    &mut cells,
+                    black_box(cells.as_mut_slice()),
                     PartitionPlan::chunk_size(16),
                     |_start, shard| shard.len(),
                 );

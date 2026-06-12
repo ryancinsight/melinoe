@@ -8,6 +8,12 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Added
 
+- [minor] `thread_cached!` macro (`thread_cached` module): per-thread cached
+  value with `get_or_init`/`set`, expanding to the nightly-`#[thread_local]` /
+  stable-`thread_local!` cfg pair. Consolidates the identical caching pattern
+  themis (`CACHED_NODE`) and mnemosyne (`CACHED_CPU_ID`) carried independently;
+  storage is `Option<T>`, never a sentinel. Build-script `nightly_tls_active`
+  detection added (probe no longer gated behind the `nightly` feature).
 - [patch] Default `parallel` and `mnemosyne-memory` feature markers. The
   `mnemosyne-memory` feature forwards to `alloc`, preserving branded Cow/cell
   memory-boundary support without introducing a dependency cycle back to
@@ -15,6 +21,16 @@ All notable changes to `melinoe` are documented here. The format follows
 - [patch] `std` partition drivers can register a custom blocking parallel executor, allowing Moirai to route branded `partition_map` shards through its scheduler while preserving disjoint `WriterShard` semantics.
 - [patch] Apollo-facing branded `Cow` boundary contract tests proving zero-copy
   borrowed scratch views and exactly-once retained ownership.
+
+### Changed
+
+- [patch] Split `region` into `region::shard` and `region::chunks` leaf modules
+  while preserving the public `region::WriterShard` / `region::ShardChunks`
+  exports. The module root is now documentation plus exports only; shard access
+  and exact-size chunk iteration each have one implementation home.
+- [patch] Hardened the `partition_driver` benchmark by black-boxing the input
+  slice, preventing the empty-region row from collapsing to a compile-time-known
+  `Vec::new()` result; refreshed the partition-driver measurements.
 
 ## [0.6.0] — 2026-06-04
 

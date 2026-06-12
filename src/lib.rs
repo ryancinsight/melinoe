@@ -211,6 +211,7 @@ pub mod cell;
 pub mod reentrant;
 pub mod region;
 pub mod sync;
+pub mod thread_cached;
 pub mod token;
 
 #[cfg(all(doctest, feature = "std"))]

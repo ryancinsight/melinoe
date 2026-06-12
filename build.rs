@@ -8,15 +8,12 @@ use std::{env, process::Command};
 /// Main entry point of the build script.
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(doc_cfg_active)");
+    println!("cargo:rustc-check-cfg=cfg(nightly_tls_active)");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=RUSTC");
 
     let is_nightly_feature = env::var_os("CARGO_FEATURE_NIGHTLY").is_some();
     let is_docsrs = env::var_os("CARGO_CFG_DOCSRS").is_some();
-
-    if !is_nightly_feature && !is_docsrs {
-        return;
-    }
 
     let rustc = env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
     let Ok(output) = Command::new(rustc).arg("-vV").output() else {
@@ -34,7 +31,10 @@ fn main() {
             None => false,
         });
 
-    if is_nightly_compiler || is_docsrs {
+    if (is_nightly_compiler && is_nightly_feature) || is_docsrs {
         println!("cargo:rustc-cfg=doc_cfg_active");
+    }
+    if is_nightly_compiler {
+        println!("cargo:rustc-cfg=nightly_tls_active");
     }
 }

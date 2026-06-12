@@ -25,6 +25,12 @@ owned storage with exactly one clone per element. Evidence tier:
 value-semantic integration tests plus the existing ZST/type-level policy
 surface.
 
+The current cleanup audited the region partitioning tree. `src/region/mod.rs`
+still held module documentation, the `WriterShard` capability, and the
+`ShardChunks` exact-size iterator in one file. It now acts as the documentation
+and re-export root, with `region::shard` owning shard capability behavior and
+`region::chunks` owning exact-size chunk iteration.
+
 ## Findings
 
 ### Default provider feature policy — closed
@@ -126,9 +132,25 @@ reserves capacity from `chunks.len()`. The helper and the `ResolvedPartitionPlan
 struct are removed; `PartitionPlan::resolve` returns only the chunk size. The
 empty/over-partitioned memory-efficiency contract is unchanged (the iterator
 reports `0` for an empty region) and is pinned by both the new exact-size tests
-and the `partition_driver/empty_region` benchmark (~42 ns, no spawn). The new
+and the `partition_driver/empty_region` benchmark (~1.0 ns with the input slice
+black-boxed, no spawn). The new
 `ExactSizeIterator` impl is additive public API ([minor]). Evidence tier:
 value-semantic tests plus Criterion confirmation of no regression.
+
+### Region module hierarchy — gap closed (0.6.0)
+
+`src/region/mod.rs` mixed three responsibilities: conceptual documentation,
+the zero-cost write capability, and its chunk iterator. This did not affect
+runtime behavior, but it weakened SRP/SoC and made the exact-size iterator less
+discoverable. Split into `region/mod.rs` (docs + public re-exports),
+`region/shard.rs` (`WriterShard` and its zero-copy slice views), and
+`region/chunks.rs` (`ShardChunks`, exact `size_hint`, `ExactSizeIterator`).
+The public API remains `melinoe::region::{WriterShard, ShardChunks}` and
+`melinoe::WriterShard`; no compatibility shim was added. Evidence tier:
+type-level/API preservation plus the partition integration suite. The
+partition-driver benchmark was hardened to black-box the input slice before the
+refreshed run, preventing the empty-region row from collapsing to a
+compile-time-known `Vec::new()` result.
 
 ### Feature hygiene — gap closed (0.6.0)
 
@@ -158,8 +180,8 @@ Stable gates green: `fmt --check`, `clippy --all-targets -- -D warnings`,
 `test --features std` (88 passed), `doc --no-deps`, and the full feature matrix
 (`--no-default-features`, `--no-default-features --features alloc`). The
 `partition_driver` Criterion group was rerun (fast sweep); `empty_region`
-(~42 ns) confirms the no-spawn / zero-capacity contract survives the SSOT
-refactor. Version bumped 0.5.0 → 0.6.0 ([minor], additive public API:
+(~1.0 ns with a black-boxed input slice) confirms the no-spawn / zero-capacity
+contract survives the SSOT refactor. Version bumped 0.5.0 → 0.6.0 ([minor], additive public API:
 `ShardChunks: ExactSizeIterator`). CHANGELOG synchronized.
 
 All prior verification residuals are now resolved. **Miri** is clean across the

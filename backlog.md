@@ -23,6 +23,11 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Closed
 
+- <a id="region-module-hierarchy"></a>[patch] Region module hierarchy split
+  delivered in 0.6.0. `src/region/mod.rs` is now the documentation/re-export
+  root, `src/region/shard.rs` owns `WriterShard`, and
+  `src/region/chunks.rs` owns `ShardChunks` exact-size iteration. Public exports
+  are unchanged; evidence: partition integration suite and stable gates.
 - <a id="default-provider-feature-policy"></a>[patch] Default `parallel` and
   `mnemosyne-memory` feature markers delivered. `mnemosyne-memory` forwards to
   `alloc`; no dependency cycle to Mnemosyne is introduced. Evidence: Atlas
@@ -69,12 +74,10 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Cross-repo filing (2026-06-12 stack audit)
 
-- [ ] [minor] Shared thread-local value-cache utility: themis (`CACHED_NODE_NIGHTLY`
-  in `src/query.rs:5-12`) and mnemosyne (`CACHED_CPU_ID` in
-  `mnemosyne-local/src/per_cpu.rs:122-129`) carry the identical
-  nightly-`#[thread_local] static mut` / stable-`std::thread_local!` caching
-  pattern. Second occurrence triggers consolidation: provide one generic
-  melinoe primitive (e.g. `ThreadCached<T: Copy>` with `get_or_init` /
-  `refresh`) both consumers adopt, deleting the per-repo copies in the same
-  coordinated change. Drivers: themis, mnemosyne; moirai's
-  `thread_local_static!` macro is the third near-instance to evaluate.
+- [x] [minor] (0.7.0) Shared thread-local value-cache utility delivered as
+  `thread_cached!` (macro: TLS statics are declaration-site constructs no
+  generic type can capture; same sanctioned route as moirai's
+  `thread_local_static!`). themis `CACHED_NODE` and mnemosyne `CACHED_CPU_ID`
+  adopt it in the same coordinated change. moirai's `thread_local_static!`
+  remains separate by design: it serves no_std targets with a different
+  fallback shape (evaluated 2026-06-12).

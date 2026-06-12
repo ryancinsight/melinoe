@@ -257,6 +257,8 @@ move-only, `Send` write capability over a disjoint `&mut [MelinoeCell<'brand, T>
 sub-slice; disjointness comes from the standard library's `split_at_mut`. Read is
 gated behind `&shard` and write behind `&mut shard`, so **write strictly subsumes
 read** — the dependency realized structurally, at zero runtime cost.
+The region module is split by responsibility: `region::shard` owns the
+`WriterShard` capability, and `region::chunks` owns exact-size chunk iteration.
 
 ```rust
 use melinoe::sync::partition_for_each;
