@@ -110,6 +110,32 @@ macro_rules! thread_cached {
                 #[cfg(not(nightly_tls_active))]
                 VALUE.with(|cell| cell.set(Some(value)));
             }
+
+            /// Returns the cached value if initialized, otherwise returns `None`.
+            #[inline]
+            pub fn get() -> Option<$ty> {
+                #[cfg(nightly_tls_active)]
+                // SAFETY: thread-exclusive `#[thread_local]` slot; see
+                // `get_or_init`.
+                unsafe {
+                    VALUE
+                }
+                #[cfg(not(nightly_tls_active))]
+                VALUE.with(|cell| cell.get())
+            }
+
+            /// Clears the cached value for the calling thread.
+            #[inline]
+            pub fn clear() {
+                #[cfg(nightly_tls_active)]
+                // SAFETY: thread-exclusive `#[thread_local]` slot; see
+                // `get_or_init`.
+                unsafe {
+                    VALUE = None;
+                }
+                #[cfg(not(nightly_tls_active))]
+                VALUE.with(|cell| cell.set(None));
+            }
         }
     };
 }

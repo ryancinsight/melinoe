@@ -37,3 +37,22 @@ fn threads_have_independent_caches() {
     // Spawned thread's writes never leak into this thread's slot.
     assert_eq!(cached_value::get_or_init(|| panic!("re-init")), 100);
 }
+
+#[test]
+fn get_and_clear_inspect_and_invalidate_cache() {
+    cached_value::clear();
+    assert_eq!(cached_value::get(), None);
+
+    let val = cached_value::get_or_init(|| 42);
+    assert_eq!(val, 42);
+    assert_eq!(cached_value::get(), Some(42));
+
+    cached_value::clear();
+    assert_eq!(cached_value::get(), None);
+
+    cached_value::set(13);
+    assert_eq!(cached_value::get(), Some(13));
+
+    cached_value::clear();
+    assert_eq!(cached_value::get(), None);
+}
