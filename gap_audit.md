@@ -158,6 +158,18 @@ partition-driver benchmark was hardened to black-box the input slice before the
 refreshed run, preventing the empty-region row from collapsing to a
 compile-time-known `Vec::new()` result.
 
+### Registered partition executor aliasing — gap closed (0.7.0)
+
+The custom `ParallelExecutorFn` path already tiled cell ranges and result slots
+by task index, but each task reconstructed `&mut Context` from the same raw
+executor payload. That was stronger aliasing than the code needed and invalid
+for a truly concurrent executor. The task wrapper now reconstructs only a shared
+read-only context, then writes through raw pointers solely to its disjoint
+`MaybeUninit<R>` result slot and non-overlapping cell range. Evidence tier:
+type-level/API preservation plus value-semantic partition tests; the unsafe
+contract remains explicit on `ParallelExecutorFn` because external schedulers
+must still invoke each task index exactly once and block until completion.
+
 ### Thread-local cache duplication — gap closed (0.7.0)
 
 Repeated per-thread value caches in Atlas consumers used the same two-way cfg

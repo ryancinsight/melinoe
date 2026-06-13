@@ -36,6 +36,10 @@ All notable changes to `melinoe` are documented here. The format follows
 - [patch] `thread_cached!` nightly storage now uses
   `#[thread_local] Cell<Option<T>>` instead of `static mut Option<T>`, removing
   the macro's generated unsafe blocks on the nightly TLS path.
+- [patch] Registered partition executor task dispatch now reconstructs a shared
+  read-only context from the executor payload instead of an aliased `&mut`
+  context, preserving the disjoint raw output writes without invalid mutable
+  aliasing when custom executors run shards concurrently.
 - [patch] `build.rs` now declares and emits `nightly_tls_active` independently
   from `doc_cfg_active`, so TLS fast-path cfg is available without requiring the
   `nightly` documentation feature.

@@ -141,7 +141,9 @@ where
 /// # Safety
 /// The executor must block the calling thread until all `num_tasks` invocations
 /// of `task_fn` have completed. Each task is invoked with a unique index in
-/// `0..num_tasks` and the provided `data` raw pointer.
+/// `0..num_tasks` and the provided `data` raw pointer. It must not call an
+/// index more than once, omit an index, or return before every task call has
+/// either completed or unwound through the executor.
 pub type ParallelExecutorFn =
     unsafe fn(num_tasks: usize, task_fn: unsafe fn(usize, *mut ()), data: *mut ());
 
@@ -216,17 +218,25 @@ where
             R: Send,
             F: Fn(usize, WriterShard<'_, 'brand, T>) -> R + Sync,
         {
-            let ctx = unsafe { &mut *(data as *mut Context<'_, 'brand, T, R, F>) };
+            // SAFETY: `partition_map_with` passes a pointer to a live `Context`
+            // and the executor safety contract requires all tasks to complete
+            // before returning. The context fields are read-only during task
+            // execution; per-task mutation happens only through disjoint output
+            // slots and non-overlapping cell ranges below.
+            let ctx = unsafe { &*(data as *const Context<'_, 'brand, T, R, F>) };
             let start = index * ctx.chunk_size;
             let end = (start + ctx.chunk_size).min(ctx.cells_len);
 
-            // SAFETY: the custom parallel executor guarantees that tasks are
-            // run concurrently but without overlapping slice index ranges, and
-            // each task index in 0..num_tasks is executed exactly once.
+            // SAFETY: `index < num_tasks`, and `num_tasks` is exactly the
+            // `ShardChunks` count for `chunk_size`, so each computed range is
+            // in-bounds, non-empty, and disjoint from every other task range.
             let chunk_ref =
                 unsafe { core::slice::from_raw_parts_mut(ctx.cells_ptr.add(start), end - start) };
             let shard = WriterShard::new(chunk_ref);
             let result = (ctx.f)(start, shard);
+            // SAFETY: the executor invokes each task index in `0..num_tasks`
+            // exactly once. Each task writes only its own result slot, so the
+            // writes are disjoint even when tasks run concurrently.
             unsafe {
                 ctx.out_ptr
                     .add(index)
