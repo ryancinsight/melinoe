@@ -11,7 +11,7 @@ Borrows default + Tree Borrows on the projection/branding paths).
 The 0.6.0 increment audited the full source tree again end to end; the access
 core, token families, guards, atomics, and Cow/slice paths remain optimal and
 unchanged. Two gaps were found and closed: a shard-count SSOT duplication in the
-partition driver (`src/region/mod.rs`, `src/sync/partition.rs`) and a feature-gate
+partition driver (`src/region/mod.rs`, `src/sync/partition/mod.rs`) and a feature-gate
 defect in `examples/codegen.rs`. The prior increment audited `src/cell/cow.rs`,
 `src/atomic.rs`, `src/static_assertions.rs`, `tests/conditional_cow.rs`,
 `tests/conditional_atomics.rs`, and the Mnemosyne / conditional-atomic Criterion
@@ -169,6 +169,17 @@ read-only context, then writes through raw pointers solely to its disjoint
 type-level/API preservation plus value-semantic partition tests; the unsafe
 contract remains explicit on `ParallelExecutorFn` because external schedulers
 must still invoke each task index exactly once and block until completion.
+
+### Partition module hierarchy — gap closed (0.7.0)
+
+The `std` partition driver had grown three concerns in one file: shard sizing
+policy, global custom-executor registration, and execution of the scoped/default
+driver. Split it into `sync::partition::{plan, executor, driver}` leaf modules
+under `src/sync/partition/`. Public re-exports remain unchanged
+(`melinoe::sync::{PartitionPlan, partition_map_with, register_parallel_executor,
+...}`), while the file tree now matches SRP/SoC boundaries and keeps executor
+unsafe state isolated from plan resolution. Evidence tier: type-level/API
+preservation plus the partition integration suite.
 
 ### Thread-local cache duplication — gap closed (0.7.0)
 

@@ -40,6 +40,10 @@ All notable changes to `melinoe` are documented here. The format follows
   read-only context from the executor payload instead of an aliased `&mut`
   context, preserving the disjoint raw output writes without invalid mutable
   aliasing when custom executors run shards concurrently.
+- [patch] Split the `std` partition implementation into
+  `sync::partition::{plan, executor, driver}` leaf modules, preserving all
+  public `melinoe::sync::*` re-exports while isolating sizing policy, executor
+  registration, and driver execution.
 - [patch] `build.rs` now declares and emits `nightly_tls_active` independently
   from `doc_cfg_active`, so TLS fast-path cfg is available without requiring the
   `nightly` documentation feature.

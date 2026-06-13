@@ -8,7 +8,8 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 - [ ] [minor] Stage D1 support: a documented device-buffer ownership-transfer pattern —
   moving a `SyncRegionToken` transfers write capability across host/device/stream; a
   `SharedReadToken` fans out concurrent device reads; `BrandedAtomic` covers fence/
-  counter values touched on both sides. Add a contract test with a mock device buffer.
+  counter values touched on both sides. Add a real contract test over the lowest
+  available device/stream abstraction; do not substitute a mock buffer.
 
 ## Active
 

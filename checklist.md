@@ -19,6 +19,8 @@ Target version: 0.7.0
 - [x] [patch] Audit registered partition executor dispatch and remove the
   aliased `&mut Context` reconstruction from each task; task wrappers now read a
   shared context and write only their disjoint result slot.
+- [x] [patch] Split the `std` partition implementation into vertical
+  `plan`/`executor`/`driver` leaf modules without changing public exports.
 - [x] [patch] Add default `parallel` and `mnemosyne-memory` feature markers;
   `mnemosyne-memory` forwards to `alloc` for branded Cow/cell memory-boundary
   support without depending back on Mnemosyne.

@@ -154,7 +154,7 @@ and dominated by thread-spawn overhead, measuring nothing useful).
 * Melinoe fixed-part shards achieve real parallel speedup (~3.3× on 4 cores) using **plain
   stores** — no synchronization on the write path.
 * `melinoe_available_parallelism` and `melinoe_chunked` exercise the typed
-  [`PartitionPlan`](src/sync/partition.rs) surface added in 0.3.0: hardware
+  [`PartitionPlan`](src/sync/partition/mod.rs) surface added in 0.3.0: hardware
   parallelism for ergonomic defaults, and chunk-size scheduling for cache/tile
   oriented callers.
 * They match lock-free atomics here because the heavy per-element compute hides
