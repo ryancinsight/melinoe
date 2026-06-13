@@ -33,6 +33,9 @@ All notable changes to `melinoe` are documented here. The format follows
   `Vec::new()` result; refreshed the partition-driver measurements.
 - [patch] Added `thread_cached_4096x` benchmark coverage for `get`,
   `get_or_init`, `set`, and `clear`/`set` on the stable TLS fallback path.
+- [patch] `thread_cached!` nightly storage now uses
+  `#[thread_local] Cell<Option<T>>` instead of `static mut Option<T>`, removing
+  the macro's generated unsafe blocks on the nightly TLS path.
 - [patch] `build.rs` now declares and emits `nightly_tls_active` independently
   from `doc_cfg_active`, so TLS fast-path cfg is available without requiring the
   `nightly` documentation feature.

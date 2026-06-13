@@ -1,5 +1,5 @@
-//! Per-thread value caching, consolidated from the identical
-//! nightly-`#[thread_local]` / stable-`thread_local!` pairs that themis
+//! Per-thread value caching, consolidated from the duplicated
+//! nightly-`#[thread_local]` / stable-`thread_local!` patterns that themis
 //! (`CACHED_NODE`) and mnemosyne (`CACHED_CPU_ID`) carried independently.
 //!
 //! Thread-local statics cannot be expressed as a generic type — the storage
@@ -31,16 +31,16 @@
 ///
 /// # Consumer requirements
 ///
-/// On nightly toolchains the expansion uses `#[thread_local]` statics, so the
-/// consuming crate must carry:
+/// On nightly toolchains the expansion uses `#[thread_local] Cell<Option<T>>`
+/// statics, so the consuming crate must carry:
 ///
 /// - a build script emitting `cargo:rustc-check-cfg=cfg(nightly_tls_active)`
 ///   and `cargo:rustc-cfg=nightly_tls_active` when the compiler is nightly
 ///   (themis and mnemosyne-local already do), and
 /// - `#![cfg_attr(nightly_tls_active, feature(thread_local))]` at crate root.
 ///
-/// On stable the expansion falls back to `std::thread_local!`, so a stable
-/// consumer must link `std`.
+/// On stable the expansion falls back to `std::thread_local!` with the same
+/// `Cell<Option<T>>` payload, so a stable consumer must link `std`.
 ///
 /// # Example
 ///
@@ -68,7 +68,8 @@ macro_rules! thread_cached {
 
             #[cfg(nightly_tls_active)]
             #[thread_local]
-            static mut VALUE: Option<$ty> = None;
+            static VALUE: ::core::cell::Cell<Option<$ty>> =
+                const { ::core::cell::Cell::new(None) };
 
             #[cfg(not(nightly_tls_active))]
             ::std::thread_local! {
@@ -78,18 +79,15 @@ macro_rules! thread_cached {
 
             /// Returns the cached value, initializing it with `init` on the
             /// calling thread's first access.
-            #[inline]
+            #[inline(always)]
             pub fn get_or_init(init: impl FnOnce() -> $ty) -> $ty {
                 #[cfg(nightly_tls_active)]
-                // SAFETY: `VALUE` is `#[thread_local]`: the calling thread
-                // owns its instance exclusively and no reference to it
-                // escapes this function, so the read/write cannot race.
-                unsafe {
-                    if let Some(value) = VALUE {
+                {
+                    if let Some(value) = VALUE.get() {
                         value
                     } else {
                         let value = init();
-                        VALUE = Some(value);
+                        VALUE.set(Some(value));
                         value
                     }
                 }
@@ -106,39 +104,33 @@ macro_rules! thread_cached {
             }
 
             /// Overwrites the cached value for the calling thread.
-            #[inline]
+            #[inline(always)]
             pub fn set(value: $ty) {
                 #[cfg(nightly_tls_active)]
-                // SAFETY: thread-exclusive `#[thread_local]` slot; see
-                // `get_or_init`.
-                unsafe {
-                    VALUE = Some(value);
+                {
+                    VALUE.set(Some(value));
                 }
                 #[cfg(not(nightly_tls_active))]
                 VALUE.with(|cell| cell.set(Some(value)));
             }
 
             /// Returns the cached value if initialized, otherwise returns `None`.
-            #[inline]
+            #[inline(always)]
             pub fn get() -> Option<$ty> {
                 #[cfg(nightly_tls_active)]
-                // SAFETY: thread-exclusive `#[thread_local]` slot; see
-                // `get_or_init`.
-                unsafe {
-                    VALUE
+                {
+                    VALUE.get()
                 }
                 #[cfg(not(nightly_tls_active))]
                 VALUE.with(|cell| cell.get())
             }
 
             /// Clears the cached value for the calling thread.
-            #[inline]
+            #[inline(always)]
             pub fn clear() {
                 #[cfg(nightly_tls_active)]
-                // SAFETY: thread-exclusive `#[thread_local]` slot; see
-                // `get_or_init`.
-                unsafe {
-                    VALUE = None;
+                {
+                    VALUE.set(None);
                 }
                 #[cfg(not(nightly_tls_active))]
                 VALUE.with(|cell| cell.set(None));

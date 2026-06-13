@@ -161,8 +161,8 @@ compile-time-known `Vec::new()` result.
 ### Thread-local cache duplication — gap closed (0.7.0)
 
 Repeated per-thread value caches in Atlas consumers used the same two-way cfg
-shape: nightly `#[thread_local] static mut Option<T>` for the fast path and
-stable `std::thread_local!` with `Cell<Option<T>>` fallback. A normal generic
+shape: nightly `#[thread_local]` storage for the fast path and stable
+`std::thread_local!` fallback. A normal generic
 type cannot declare a fresh static per cache site, so the canonical abstraction
 is a small declaration macro. Added `thread_cached!`, which emits one module per
 cache site with `get_or_init` and `set` for `Copy` values. `build.rs` now
@@ -172,7 +172,8 @@ value-semantic integration tests for initialization, same-thread reuse,
 overwrite, and per-thread independence. Benchmark evidence:
 `thread_cached_4096x` covers cached `get`, cached `get_or_init`, `set`, and
 `clear`/`set`; the stable fallback measures sub-nanosecond to ~1.1 ns per
-operation on this host.
+operation on this host. Latest refinement stores both cfg paths as
+`Cell<Option<T>>`, eliminating generated unsafe from the nightly TLS path.
 
 ### Feature hygiene — gap closed (0.6.0)
 

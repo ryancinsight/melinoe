@@ -14,6 +14,8 @@ Target version: 0.7.0
   `std::thread_local!` fallback.
 - [x] [patch] Add and rerun `thread_cached_4096x` Criterion coverage for
   cached hit, overwrite, and invalidation paths; update `BENCHMARKS.md`.
+- [x] [patch] Remove generated unsafe from `thread_cached!` nightly TLS access
+  by using `#[thread_local] Cell<Option<T>>` storage and inline accessors.
 - [x] [patch] Add default `parallel` and `mnemosyne-memory` feature markers;
   `mnemosyne-memory` forwards to `alloc` for branded Cow/cell memory-boundary
   support without depending back on Mnemosyne.
