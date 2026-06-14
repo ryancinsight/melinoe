@@ -101,7 +101,7 @@ impl ReentrancyCell {
     ///     *slot.borrow_mut(&mut token) = 7;
     ///
     ///     // A re-entrant acquisition is refused, not aliased.
-    ///     assert!(gate.enter(|_| ()).is_err());
+    ///     assert_eq!(gate.enter(|_| ()), Err(melinoe::reentrant::Reentered));
     ///
     ///     *slot.borrow(&token)
     /// });
@@ -145,7 +145,10 @@ impl ReentrancyCell {
 /// let cache = GuardedCell::new(0_u64);
 /// assert_eq!(cache.enter(|n| { *n += 41; *n }), Ok(41));
 /// // Re-entrant access is refused, not aliased:
-/// assert!(cache.enter(|_| cache.enter(|_| ())).unwrap().is_err());
+/// assert_eq!(
+///     cache.enter(|_| cache.enter(|_| ())).unwrap(),
+///     Err(melinoe::reentrant::Reentered)
+/// );
 /// ```
 #[derive(Debug, Default)]
 pub struct GuardedCell<T: ?Sized> {

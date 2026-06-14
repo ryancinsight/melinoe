@@ -181,6 +181,15 @@ under `src/sync/partition/`. Public re-exports remain unchanged
 unsafe state isolated from plan resolution. Evidence tier: type-level/API
 preservation plus the partition integration suite.
 
+### Existence-only assertion audit — gap closed (0.7.0)
+
+The reentrancy panic tests and doctest examples still contained existence-only
+error assertions (`is_err`). Replaced them with value-semantic assertions:
+re-entrant acquisition checks compare to `Err(Reentered)`, and panic-unwind
+tests downcast and compare the sentinel payload. A workspace search over `src`
+and `tests` now finds no `is_err` / `is_ok` / `is_some` / `is_none` assertions.
+Evidence tier: value-semantic tests plus source-wide assertion audit.
+
 ### Thread-local cache duplication — gap closed (0.7.0)
 
 Repeated per-thread value caches in Atlas consumers used the same two-way cfg

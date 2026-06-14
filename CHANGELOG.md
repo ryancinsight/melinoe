@@ -44,6 +44,8 @@ All notable changes to `melinoe` are documented here. The format follows
   `sync::partition::{plan, executor, driver}` leaf modules, preserving all
   public `melinoe::sync::*` re-exports while isolating sizing policy, executor
   registration, and driver execution.
+- [patch] Reentrancy panic tests and Rustdoc examples now assert concrete
+  `Reentered` / panic-payload values instead of existence-only error predicates.
 - [patch] `build.rs` now declares and emits `nightly_tls_active` independently
   from `doc_cfg_active`, so TLS fast-path cfg is available without requiring the
   `nightly` documentation feature.

@@ -65,7 +65,7 @@ fn reentrancy_gate_clears_flag_after_panic() {
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let _ = gate.enter(|_token| panic!("boom"));
     }));
-    assert!(r.is_err());
+    assert_eq!(panic_payload(r), "boom");
     // Flag was reset by the drop guard despite the unwind, so the gate is reusable.
     assert!(!gate.is_active());
     assert_eq!(gate.enter(|_| 5), Ok(5));
@@ -100,7 +100,7 @@ fn guarded_cell_clears_flag_after_panic() {
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let _ = cache.enter(|_| panic!("boom"));
     }));
-    assert!(r.is_err());
+    assert_eq!(panic_payload(r), "boom");
     // The hand-rolled `is_allocating` idiom would stay poisoned here; the drop
     // guard cleared it, so the cell is reusable.
     assert!(!cache.is_active());
@@ -114,4 +114,14 @@ fn guarded_cell_unguarded_skips_flag() {
     let doubled = unsafe { cache.enter_unguarded(|n| *n * 2) }.unwrap();
     assert_eq!(doubled, 20);
     assert!(!cache.is_active());
+}
+
+fn panic_payload(result: std::thread::Result<()>) -> &'static str {
+    let payload = match result {
+        Ok(()) => panic!("expected the reentrancy closure to panic"),
+        Err(payload) => payload,
+    };
+    payload
+        .downcast_ref::<&'static str>()
+        .expect("panic payload should be the test sentinel")
 }
