@@ -21,6 +21,10 @@ Target version: 0.7.0
   shared context and write only their disjoint result slot.
 - [x] [minor] Add `clear_parallel_executor` and value-semantic coverage proving
   registered executor state can be reset to the default scoped-thread driver.
+- [x] [minor] Add `crates/halo` as the Melinoe-backed protective collection
+  crate. Initial migrated surface: `halo::BrandedVec<'brand, T>` over
+  `Vec<MelinoeCell<'brand, T>>`, with permit-gated element/slice access,
+  conditional `Cow`, value-semantic tests, and a Criterion benchmark harness.
 - [x] [patch] Split the `std` partition implementation into vertical
   `plan`/`executor`/`driver` leaf modules without changing public exports.
 - [x] [patch] Remove remaining existence-only error assertions from reentrancy

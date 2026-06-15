@@ -8,6 +8,10 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Added
 
+- [minor] Added the `halo` workspace crate as the Melinoe-backed protective
+  collection layer. The initial `halo::BrandedVec<'brand, T>` surface stores
+  `Vec<MelinoeCell<'brand, T>>` and exposes permit-gated element, slice, and
+  conditional `Cow` access through Melinoe's canonical primitives.
 - [minor] `thread_cached!` macro (`thread_cached` module): per-thread cached
   value with `get_or_init`/`set`/`get`/`clear`, expanding to the
   nightly-`#[thread_local]` / stable-`thread_local!` cfg pair. Consolidates the

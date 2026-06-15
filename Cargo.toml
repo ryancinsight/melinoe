@@ -12,6 +12,11 @@ keywords = ["ghostcell", "phantom", "capability", "no_std", "concurrency"]
 categories = ["no-std", "concurrency", "rust-patterns", "memory-management"]
 readme = "README.md"
 
+[workspace]
+members = [".", "crates/halo"]
+default-members = ["."]
+resolver = "2"
+
 [features]
 default = ["std", "parallel", "mnemosyne-memory"]
 parallel = []

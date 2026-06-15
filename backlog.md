@@ -13,10 +13,15 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
-(none — 0.6.0 increment closed; see Closed.)
+(none — 0.7.0 Halo workspace increment closed; see Closed.)
 
 ## Next
 
+- <a id="halo-upstream-migration"></a>[minor] Continue the staged migration of
+  `ryancinsight/halo` into `crates/halo`: replace Halo-local `GhostToken` /
+  `GhostCell` surfaces with Melinoe permits/cells collection by collection,
+  discard scratch/log/generated artifacts, and require each migrated collection
+  to land with value-semantic tests, docs, and a benchmark harness.
 - <a id="semver-registry"></a>[patch] After registry publication, switch
   `cargo-semver-checks` from the `--baseline-rev` git workflow (now established)
   to the default crates.io baseline, and re-run once semver-checks supports the
@@ -24,6 +29,12 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Closed
 
+- <a id="halo-workspace-crate"></a>[minor] Added `crates/halo` as the
+  Melinoe-backed protective collection crate. The first migrated vertical slice
+  is `halo::BrandedVec<'brand, T>`, backed directly by
+  `Vec<MelinoeCell<'brand, T>>` and Melinoe's permit, zero-copy slice, and
+  conditional `Cow` traits. Evidence: `cargo check -p halo` plus targeted tests,
+  docs, and benchmark harness verification in the delivering change.
 - <a id="region-module-hierarchy"></a>[patch] Region module hierarchy split
   delivered in 0.6.0. `src/region/mod.rs` is now the documentation/re-export
   root, `src/region/shard.rs` owns `WriterShard`, and

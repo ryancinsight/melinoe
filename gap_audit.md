@@ -39,6 +39,18 @@ cross-thread independence tests.
 
 ## Findings
 
+### Halo workspace integration — first slice closed
+
+The upstream `ryancinsight/halo` repository compiles, but the inspected tree
+contains a broad independent ghost-token implementation, large collection/graph
+modules, missing-doc warnings, and scratch/log/generated artifacts. Bulk import
+would introduce a second capability system and break Melinoe's documentation and
+verification discipline. The first integrated slice is therefore `crates/halo`
+with `halo::BrandedVec<'brand, T>` backed by `Vec<MelinoeCell<'brand, T>>`.
+Evidence tier: type-level Melinoe permit encoding plus value-semantic tests for
+element access, zero-copy slice pointer identity, and conditional `Cow`
+borrow/retain behavior. Residual tracked in `backlog.md#halo-upstream-migration`.
+
 ### Default provider feature policy — closed
 
 Melinoe did not expose the Atlas-wide default `parallel` and

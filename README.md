@@ -12,6 +12,14 @@ The crate ships **no allocator, arena, or `GlobalAlloc`** — only the
 compile-time machinery. It is built to slot into the **Mnemosyne** memory
 ecosystem alongside its ZST `AllocPolicy`, heap branding, and `Branded*` types.
 
+## Workspace crates
+
+This repository now also contains `crates/halo`, the Melinoe-backed protective
+collection layer. Halo owns ergonomic data-structure adapters and delegates
+branding, token permits, zero-copy slice views, and conditional `Cow` boundaries
+to `melinoe` rather than carrying an independent ghost-token implementation.
+The first migrated surface is `halo::BrandedVec<'brand, T>`.
+
 > *In Greek myth, Melinoë leads a restless train of phantoms through the night.
 > Here she leads a train of phantom **types** — each a wisp of pure evidence,
 > weightless at runtime, that polices access to memory.*
