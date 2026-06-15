@@ -123,12 +123,35 @@ fn shard_into_iterator() {
 mod concurrent {
     use super::*;
     use melinoe::sync::{
-        partition_for_each, partition_for_each_available, partition_for_each_with, partition_map,
-        partition_map_available, partition_map_with, register_parallel_executor, PartitionPlan,
+        clear_parallel_executor, partition_for_each, partition_for_each_available,
+        partition_for_each_with, partition_map, partition_map_available, partition_map_with,
+        register_parallel_executor, PartitionPlan,
     };
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Mutex, MutexGuard};
 
     static EXECUTED_TASKS: AtomicUsize = AtomicUsize::new(0);
+    static EXECUTOR_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct ExecutorTestGuard {
+        _lock: MutexGuard<'static, ()>,
+    }
+
+    impl ExecutorTestGuard {
+        fn acquire() -> Self {
+            let lock = EXECUTOR_TEST_LOCK
+                .lock()
+                .expect("invariant: executor-state tests do not poison their lock");
+            clear_parallel_executor();
+            Self { _lock: lock }
+        }
+    }
+
+    impl Drop for ExecutorTestGuard {
+        fn drop(&mut self) {
+            clear_parallel_executor();
+        }
+    }
 
     unsafe fn deterministic_executor(
         num_tasks: usize,
@@ -196,6 +219,7 @@ mod concurrent {
     #[test]
     fn registered_executor_drives_partition_map() {
         const N: usize = 32;
+        let _guard = ExecutorTestGuard::acquire();
         EXECUTED_TASKS.store(0, Ordering::SeqCst);
         register_parallel_executor(deterministic_executor);
 
@@ -212,6 +236,34 @@ mod concurrent {
 
             assert_eq!(EXECUTED_TASKS.load(Ordering::SeqCst), 4);
             assert_eq!(lengths, vec![8, 8, 8, 8]);
+            let snap = token.share();
+            for (index, cell) in cells.iter().enumerate() {
+                assert_eq!(*cell.borrow(snap), index);
+            }
+        });
+    }
+
+    #[test]
+    fn clearing_registered_executor_restores_default_driver() {
+        const N: usize = 8;
+        let _guard = ExecutorTestGuard::acquire();
+        EXECUTED_TASKS.store(0, Ordering::SeqCst);
+        register_parallel_executor(deterministic_executor);
+        clear_parallel_executor();
+
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> =
+                (0..N).map(|_| MelinoeCell::new(usize::MAX)).collect();
+
+            let lengths = partition_map(&mut cells, 4, |start, mut shard| {
+                for (offset, slot) in shard.iter_mut().enumerate() {
+                    *slot = start + offset;
+                }
+                shard.len()
+            });
+
+            assert_eq!(EXECUTED_TASKS.load(Ordering::SeqCst), 0);
+            assert_eq!(lengths, vec![2, 2, 2, 2]);
             let snap = token.share();
             for (index, cell) in cells.iter().enumerate() {
                 assert_eq!(*cell.borrow(snap), index);

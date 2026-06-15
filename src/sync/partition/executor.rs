@@ -22,6 +22,18 @@ pub fn register_parallel_executor(executor: ParallelExecutorFn) {
     PARALLEL_EXECUTOR.store(executor as *mut (), Ordering::Release);
 }
 
+/// Clear the registered parallel executor, restoring the default scoped-thread
+/// partition driver.
+///
+/// This is primarily a lifecycle and test-isolation hook for integrations that
+/// install a process-global scheduler temporarily. Existing `partition_map`
+/// calls that have already loaded the executor continue under that call's
+/// chosen driver; later calls use the default path.
+#[inline]
+pub fn clear_parallel_executor() {
+    PARALLEL_EXECUTOR.store(core::ptr::null_mut(), Ordering::Release);
+}
+
 #[inline]
 pub(super) fn registered_parallel_executor() -> Option<ParallelExecutorFn> {
     let executor_ptr = PARALLEL_EXECUTOR.load(Ordering::Acquire);

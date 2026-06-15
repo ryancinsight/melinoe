@@ -325,6 +325,10 @@ brand_scope(|token| {
 });
 ```
 
+Integrators that provide their own scheduler can install a process-global
+blocking executor with `register_parallel_executor`; `clear_parallel_executor`
+restores the default `std::thread::scope` driver for later calls.
+
 [`PartitionPlan`]: https://docs.rs/melinoe/latest/melinoe/sync/enum.PartitionPlan.html
 [`thread_cached!`]: https://docs.rs/melinoe/latest/melinoe/macro.thread_cached.html
 

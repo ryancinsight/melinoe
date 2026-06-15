@@ -20,6 +20,8 @@ All notable changes to `melinoe` are documented here. The format follows
   memory-boundary support without introducing a dependency cycle back to
   Mnemosyne.
 - [patch] `std` partition drivers can register a custom blocking parallel executor, allowing Moirai to route branded `partition_map` shards through its scheduler while preserving disjoint `WriterShard` semantics.
+- [minor] Added `clear_parallel_executor` to restore the default scoped-thread
+  partition driver after a custom process-global executor was registered.
 - [patch] Apollo-facing branded `Cow` boundary contract tests proving zero-copy
   borrowed scratch views and exactly-once retained ownership.
 ### Changed

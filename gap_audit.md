@@ -170,6 +170,18 @@ type-level/API preservation plus value-semantic partition tests; the unsafe
 contract remains explicit on `ParallelExecutorFn` because external schedulers
 must still invoke each task index exactly once and block until completion.
 
+### Registered partition executor lifecycle — gap closed (0.7.0)
+
+The registered executor is process-global. Without a reset hook, an integration
+test or temporary scheduler installation could leave later partition calls on a
+custom driver, creating hidden cross-test/process coupling. Added
+`clear_parallel_executor`, which stores a null executor pointer and restores the
+default scoped-thread driver for subsequent calls. The partition suite now
+clears before/after the registered-executor test and includes value-semantic
+coverage proving that after a clear the deterministic executor is not invoked
+and the region contents still match the identity mapping. Evidence tier:
+type-level/API addition plus value-semantic integration tests.
+
 ### Partition module hierarchy — gap closed (0.7.0)
 
 The `std` partition driver had grown three concerns in one file: shard sizing
