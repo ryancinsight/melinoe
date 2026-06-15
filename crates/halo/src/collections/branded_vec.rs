@@ -63,6 +63,52 @@ impl<'brand, T> BrandedVec<'brand, T> {
         self.cells.push(MelinoeCell::new(value));
     }
 
+    /// Remove the last value and return it, if present.
+    #[inline]
+    pub fn pop(&mut self) -> Option<T> {
+        self.cells.pop().map(MelinoeCell::into_inner)
+    }
+
+    /// Insert `value` at `index`, shifting all following values to the right.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index > len`, matching [`Vec::insert`].
+    #[inline]
+    pub fn insert(&mut self, index: usize, value: T) {
+        self.cells.insert(index, MelinoeCell::new(value));
+    }
+
+    /// Remove and return the value at `index`, shifting following values left.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index >= len`, matching [`Vec::remove`].
+    #[inline]
+    pub fn remove(&mut self, index: usize) -> T {
+        self.cells.remove(index).into_inner()
+    }
+
+    /// Remove and return the value at `index`, replacing it with the last value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index >= len`, matching [`Vec::swap_remove`].
+    #[inline]
+    pub fn swap_remove(&mut self, index: usize) -> T {
+        self.cells.swap_remove(index).into_inner()
+    }
+
+    /// Swap the values at indices `a` and `b`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either index is out of bounds, matching slice `swap`.
+    #[inline]
+    pub fn swap(&mut self, a: usize, b: usize) {
+        self.cells.swap(a, b);
+    }
+
     /// Reserve capacity for at least `additional` more values.
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
@@ -73,6 +119,39 @@ impl<'brand, T> BrandedVec<'brand, T> {
     #[inline]
     pub fn clear(&mut self) {
         self.cells.clear();
+    }
+
+    /// Shorten the vector to `len`, dropping trailing values.
+    #[inline]
+    pub fn truncate(&mut self, len: usize) {
+        self.cells.truncate(len);
+    }
+
+    /// Shrink capacity as close to length as the allocator permits.
+    #[inline]
+    pub fn shrink_to_fit(&mut self) {
+        self.cells.shrink_to_fit();
+    }
+
+    /// Resize the vector by calling `f` for each inserted value.
+    #[inline]
+    pub fn resize_with<F>(&mut self, new_len: usize, mut f: F)
+    where
+        F: FnMut() -> T,
+    {
+        self.cells.resize_with(new_len, || MelinoeCell::new(f()));
+    }
+
+    /// Retain only values for which `f` returns `true`.
+    ///
+    /// The predicate receives `&mut T` through unique vector ownership, so no
+    /// token is needed and no value is copied out of the branded storage.
+    #[inline]
+    pub fn retain_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        self.cells.retain_mut(|cell| f(cell.get_mut()));
     }
 
     /// Return the Melinoe cell storage.
@@ -178,6 +257,44 @@ impl<'brand, T> BrandedVec<'brand, T> {
             .into_iter()
             .map(MelinoeCell::into_inner)
             .collect()
+    }
+
+    /// Split the vector into disjoint writer shards and mutate them
+    /// concurrently according to `plan`.
+    ///
+    /// This method delegates to Melinoe's partition driver. No token is needed:
+    /// `&mut self` already proves unique ownership of the vector storage, and
+    /// Melinoe's [`WriterShard`](melinoe::WriterShard) proves every worker sees
+    /// a non-overlapping subslice.
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn partition_for_each_mut_with<F>(&mut self, plan: melinoe::sync::PartitionPlan, f: F)
+    where
+        T: Send,
+        F: Fn(usize, &mut [T]) + Sync,
+    {
+        melinoe::sync::partition_for_each_with(&mut self.cells, plan, |start, mut shard| {
+            f(start, shard.as_mut_slice());
+        });
+    }
+
+    /// Split the vector into disjoint writer shards and return one result per
+    /// shard in partition order.
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn partition_map_mut_with<R, F>(
+        &mut self,
+        plan: melinoe::sync::PartitionPlan,
+        f: F,
+    ) -> Vec<R>
+    where
+        T: Send,
+        R: Send,
+        F: Fn(usize, &mut [T]) -> R + Sync,
+    {
+        melinoe::sync::partition_map_with(&mut self.cells, plan, |start, mut shard| {
+            f(start, shard.as_mut_slice())
+        })
     }
 }
 

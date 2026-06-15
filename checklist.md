@@ -25,6 +25,10 @@ Target version: 0.7.0
   crate. Initial migrated surface: `halo::BrandedVec<'brand, T>` over
   `Vec<MelinoeCell<'brand, T>>`, with permit-gated element/slice access,
   conditional `Cow`, value-semantic tests, and a Criterion benchmark harness.
+- [x] [minor] Extend `halo::BrandedVec` with owned structural operations
+  (`pop`, `insert`, `remove`, `swap_remove`, `swap`, `truncate`,
+  `resize_with`, `retain_mut`) and `std`-gated partitioned mutation/map
+  adapters using Melinoe's existing disjoint-shard driver.
 - [x] [patch] Split the `std` partition implementation into vertical
   `plan`/`executor`/`driver` leaf modules without changing public exports.
 - [x] [patch] Remove remaining existence-only error assertions from reentrancy

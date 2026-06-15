@@ -31,6 +31,10 @@ pub mod prelude {
     #[doc(no_inline)]
     pub use melinoe::{brand_scope, ExclusiveToken, ReadPermit, SharedReadToken, WritePermit};
 
+    #[cfg(feature = "std")]
+    #[doc(no_inline)]
+    pub use melinoe::sync::PartitionPlan;
+
     #[doc(no_inline)]
     pub use crate::BrandedVec;
 }

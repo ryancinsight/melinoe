@@ -7,5 +7,8 @@ implementation.
 
 The first migrated surface is `BrandedVec<'brand, T>`, a `Vec` of
 `MelinoeCell<'brand, T>` with permit-gated element, slice, and `Cow` access.
+With the default `std` feature, it also exposes Melinoe partition-driver
+adapters for lock-free, disjoint concurrent mutation over `&mut [T]` shards.
+
 The remaining upstream Halo collections are tracked for staged migration in the
 workspace backlog and gap audit.

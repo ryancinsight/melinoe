@@ -13,6 +13,8 @@ use alloc::vec::Vec;
 use core::cell::Cell;
 
 use halo::BrandedVec;
+#[cfg(feature = "std")]
+use melinoe::sync::PartitionPlan;
 use melinoe::{brand_scope, Borrowed, Retained};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -116,5 +118,71 @@ fn into_vec_returns_owned_values() {
     brand_scope(|_token| {
         let values = BrandedVec::from_iter([5_u8, 8, 13]);
         assert_eq!(values.into_vec(), [5, 8, 13]);
+    });
+}
+
+#[test]
+fn structural_vec_operations_preserve_owned_values() {
+    brand_scope(|token| {
+        let mut values = BrandedVec::from_iter([1_i32, 2, 3]);
+
+        values.insert(1, 10);
+        values.swap(0, 2);
+        assert_eq!(values.as_slice(&token), &[2, 10, 1, 3]);
+
+        let removed = values.remove(1);
+        assert_eq!(removed, 10);
+        assert_eq!(values.as_slice(&token), &[2, 1, 3]);
+
+        let swapped = values.swap_remove(0);
+        assert_eq!(swapped, 2);
+        assert_eq!(values.as_slice(&token), &[3, 1]);
+
+        values.resize_with(5, || 9);
+        values.retain_mut(|value| {
+            *value += 1;
+            *value != 10
+        });
+        assert_eq!(values.as_slice(&token), &[4, 2]);
+
+        assert_eq!(values.pop(), Some(2));
+        values.truncate(0);
+        assert_eq!(values.pop(), None);
+        assert_eq!(values.as_slice(&token), &[]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_for_each_mut_writes_disjoint_shards() {
+    brand_scope(|token| {
+        let mut values = BrandedVec::from_iter([0_usize; 8]);
+
+        values.partition_for_each_mut_with(PartitionPlan::chunk_size(2), |start, shard| {
+            for (offset, value) in shard.iter_mut().enumerate() {
+                *value = start + offset;
+            }
+        });
+
+        assert_eq!(values.as_slice(&token), &[0, 1, 2, 3, 4, 5, 6, 7]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_mut_returns_partition_order_results() {
+    brand_scope(|token| {
+        let mut values = BrandedVec::from_iter([1_usize, 1, 1, 1, 1, 1]);
+
+        let lengths =
+            values.partition_map_mut_with(PartitionPlan::chunk_size(2), |start, shard| {
+                for value in shard.iter_mut() {
+                    *value += start;
+                }
+                shard.len()
+            });
+
+        assert_eq!(lengths, [2, 2, 2]);
+        assert_eq!(values.as_slice(&token), &[1, 1, 3, 3, 5, 5]);
     });
 }

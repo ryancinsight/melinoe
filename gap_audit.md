@@ -47,9 +47,13 @@ modules, missing-doc warnings, and scratch/log/generated artifacts. Bulk import
 would introduce a second capability system and break Melinoe's documentation and
 verification discipline. The first integrated slice is therefore `crates/halo`
 with `halo::BrandedVec<'brand, T>` backed by `Vec<MelinoeCell<'brand, T>>`.
-Evidence tier: type-level Melinoe permit encoding plus value-semantic tests for
-element access, zero-copy slice pointer identity, and conditional `Cow`
-borrow/retain behavior. Residual tracked in `backlog.md#halo-upstream-migration`.
+It now also includes owned vector structural operations and default-`std`
+partitioned mutation/map adapters that reuse Melinoe's `PartitionPlan` /
+`WriterShard` driver rather than adding another concurrent scheduler. Evidence
+tier: type-level Melinoe permit/shard encoding plus value-semantic tests for
+element access, structural mutation, zero-copy slice pointer identity,
+conditional `Cow` borrow/retain behavior, and concurrent shard writes. Residual
+tracked in `backlog.md#halo-upstream-migration`.
 
 ### Default provider feature policy — closed
 

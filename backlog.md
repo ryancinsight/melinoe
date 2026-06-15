@@ -35,6 +35,11 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   `Vec<MelinoeCell<'brand, T>>` and Melinoe's permit, zero-copy slice, and
   conditional `Cow` traits. Evidence: `cargo check -p halo` plus targeted tests,
   docs, and benchmark harness verification in the delivering change.
+- <a id="halo-branded-vec-ops"></a>[minor] Extended `halo::BrandedVec` with
+  owned vector structural operations and `std`-gated partitioned mutation/map
+  adapters over Melinoe `PartitionPlan` shards. Evidence: default and
+  `--no-default-features` Halo builds, value-semantic structural/concurrent
+  tests, workspace nextest/clippy/doc gates, and benchmark harness compilation.
 - <a id="region-module-hierarchy"></a>[patch] Region module hierarchy split
   delivered in 0.6.0. `src/region/mod.rs` is now the documentation/re-export
   root, `src/region/shard.rs` owns `WriterShard`, and
