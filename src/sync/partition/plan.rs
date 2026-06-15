@@ -39,13 +39,14 @@ impl PartitionPlan {
         Self::ChunkSize(nonzero_or_one(chunk_size))
     }
 
-    /// Resolve the plan to a concrete per-shard `chunk` size for `len` cells.
+    /// Resolve the plan to a concrete per-shard chunk size for a region of
+    /// length `len`.
     ///
-    /// The shard *count* is intentionally not computed here: it is derived once,
-    /// at the single source of truth, from the [`ShardChunks`](crate::region)
-    /// iterator's exact size when the driver reserves worker capacity.
+    /// Empty regions resolve to `1`, so callers can pass the result directly to
+    /// slice `chunks`/Melinoe shard chunking without risking a zero chunk size.
     #[inline]
-    pub(super) fn resolve(self, len: usize) -> usize {
+    #[must_use]
+    pub fn chunk_len_for(self, len: usize) -> usize {
         match self {
             Self::Parts(parts) => chunk_for_parts(len, parts.get()),
             Self::AvailableParallelism => {
@@ -54,6 +55,16 @@ impl PartitionPlan {
             }
             Self::ChunkSize(chunk_size) => chunk_size.get(),
         }
+    }
+
+    /// Resolve the plan for the partition driver.
+    ///
+    /// The shard *count* is intentionally not computed here: it is derived once,
+    /// at the single source of truth, from the [`ShardChunks`](crate::region)
+    /// iterator's exact size when the driver reserves worker capacity.
+    #[inline]
+    pub(super) fn resolve(self, len: usize) -> usize {
+        self.chunk_len_for(len)
     }
 }
 

@@ -186,3 +186,40 @@ fn partition_map_mut_returns_partition_order_results() {
         assert_eq!(values.as_slice(&token), &[1, 1, 3, 3, 5, 5]);
     });
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_reads_shared_shards_in_order() {
+    brand_scope(|token| {
+        let values = BrandedVec::from_iter(0_usize..10);
+
+        let sums =
+            values.partition_map_with(&token, PartitionPlan::chunk_size(4), |start, shard| {
+                assert_eq!(start % 4, 0);
+                shard.iter().sum::<usize>()
+            });
+
+        assert_eq!(sums, [6, 22, 17]);
+        assert_eq!(values.as_slice(&token), &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_for_each_reads_all_shared_shards() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static VISITED: AtomicUsize = AtomicUsize::new(0);
+    VISITED.store(0, Ordering::SeqCst);
+
+    brand_scope(|token| {
+        let values = BrandedVec::from_iter([1_usize, 2, 3, 4, 5, 6]);
+
+        values.partition_for_each_with(&token, PartitionPlan::chunk_size(2), |_start, shard| {
+            VISITED.fetch_add(shard.iter().sum::<usize>(), Ordering::SeqCst);
+        });
+
+        assert_eq!(VISITED.load(Ordering::SeqCst), 21);
+        assert_eq!(values.as_slice(&token), &[1, 2, 3, 4, 5, 6]);
+    });
+}

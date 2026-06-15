@@ -394,6 +394,18 @@ mod concurrent {
         });
     }
 
+    /// Public plan resolution gives downstream crates the same overflow-safe
+    /// chunk sizing as Melinoe's partition driver.
+    #[test]
+    fn partition_plan_chunk_len_for_matches_driver_tiling() {
+        assert_eq!(PartitionPlan::parts(4).chunk_len_for(10), 3);
+        assert_eq!(PartitionPlan::parts(32).chunk_len_for(5), 1);
+        assert_eq!(PartitionPlan::parts(0).chunk_len_for(9), 9);
+        assert_eq!(PartitionPlan::chunk_size(0).chunk_len_for(9), 1);
+        assert_eq!(PartitionPlan::chunk_size(4).chunk_len_for(10), 4);
+        assert_eq!(PartitionPlan::parts(4).chunk_len_for(0), 1);
+    }
+
     /// The available-parallel for-each convenience function is a write-only
     /// wrapper over the same shard plan.
     #[test]

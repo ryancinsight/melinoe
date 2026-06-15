@@ -40,6 +40,11 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   adapters over Melinoe `PartitionPlan` shards. Evidence: default and
   `--no-default-features` Halo builds, value-semantic structural/concurrent
   tests, workspace nextest/clippy/doc gates, and benchmark harness compilation.
+- <a id="halo-read-partitions"></a>[minor] Exposed
+  `PartitionPlan::chunk_len_for` for downstream chunk planning and added
+  `halo::BrandedVec` read-side partition map/for-each adapters over
+  permit-gated shared slices. Evidence: Melinoe plan-resolution tests, Halo
+  shared-shard tests, workspace gates, and benchmark harness compilation.
 - <a id="region-module-hierarchy"></a>[patch] Region module hierarchy split
   delivered in 0.6.0. `src/region/mod.rs` is now the documentation/re-export
   root, `src/region/shard.rs` owns `WriterShard`, and

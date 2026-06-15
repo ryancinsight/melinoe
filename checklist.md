@@ -29,6 +29,9 @@ Target version: 0.7.0
   (`pop`, `insert`, `remove`, `swap_remove`, `swap`, `truncate`,
   `resize_with`, `retain_mut`) and `std`-gated partitioned mutation/map
   adapters using Melinoe's existing disjoint-shard driver.
+- [x] [minor] Expose `PartitionPlan::chunk_len_for` for downstream read-side
+  chunking and add `halo::BrandedVec` shared partition map/for-each adapters
+  for concurrent `&[T]` processing under a Melinoe read permit.
 - [x] [patch] Split the `std` partition implementation into vertical
   `plan`/`executor`/`driver` leaf modules without changing public exports.
 - [x] [patch] Remove remaining existence-only error assertions from reentrancy

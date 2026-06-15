@@ -49,7 +49,29 @@ fn branded_partition_fill(c: &mut Criterion) {
 }
 
 #[cfg(feature = "std")]
-criterion_group!(benches, branded_slice_sum, branded_partition_fill);
+fn branded_partition_sum(c: &mut Criterion) {
+    c.bench_function("halo_branded_vec/partition_sum_4096", |b| {
+        b.iter(|| {
+            brand_scope(|token| {
+                let values = BrandedVec::from_iter(0_u64..4096);
+                let sums = values.partition_map_with(
+                    &token,
+                    PartitionPlan::chunk_size(512),
+                    |_start, shard| shard.iter().copied().fold(0_u64, u64::wrapping_add),
+                );
+                black_box(sums.into_iter().fold(0_u64, u64::wrapping_add))
+            })
+        });
+    });
+}
+
+#[cfg(feature = "std")]
+criterion_group!(
+    benches,
+    branded_slice_sum,
+    branded_partition_fill,
+    branded_partition_sum
+);
 #[cfg(not(feature = "std"))]
 criterion_group!(benches, branded_slice_sum);
 criterion_main!(benches);

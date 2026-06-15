@@ -296,6 +296,86 @@ impl<'brand, T> BrandedVec<'brand, T> {
             f(start, shard.as_mut_slice())
         })
     }
+
+    /// Split a permit-gated shared slice into disjoint read shards and run `f`
+    /// on each shard concurrently.
+    ///
+    /// This is the read-side counterpart to
+    /// [`partition_map_mut_with`](Self::partition_map_mut_with): Melinoe proves
+    /// the whole slice view is read-only through `permit`, while
+    /// [`PartitionPlan`](melinoe::sync::PartitionPlan) controls chunking.
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn partition_map_with<'a, P, R, F>(
+        &'a self,
+        permit: P,
+        plan: melinoe::sync::PartitionPlan,
+        f: F,
+    ) -> Vec<R>
+    where
+        P: ReadPermit<'brand> + 'a,
+        T: Sync,
+        R: Send,
+        F: Fn(usize, &[T]) -> R + Sync,
+    {
+        let slice = self.as_slice(permit);
+        let chunk = plan.chunk_len_for(slice.len());
+        if slice.is_empty() {
+            return Vec::new();
+        }
+
+        std::thread::scope(|scope| {
+            let f = &f;
+            let mut handles = Vec::with_capacity(1 + (slice.len() - 1) / chunk);
+            for (index, shard) in slice.chunks(chunk).enumerate() {
+                let start = index * chunk;
+                handles.push(scope.spawn(move || f(start, shard)));
+            }
+            handles
+                .into_iter()
+                .map(|handle| match handle.join() {
+                    Ok(value) => value,
+                    Err(payload) => std::panic::resume_unwind(payload),
+                })
+                .collect()
+        })
+    }
+
+    /// Split a permit-gated shared slice into disjoint read shards and run `f`
+    /// on each shard concurrently, discarding results.
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn partition_for_each_with<'a, P, F>(
+        &'a self,
+        permit: P,
+        plan: melinoe::sync::PartitionPlan,
+        f: F,
+    ) where
+        P: ReadPermit<'brand> + 'a,
+        T: Sync,
+        F: Fn(usize, &[T]) + Sync,
+    {
+        let slice = self.as_slice(permit);
+        let chunk = plan.chunk_len_for(slice.len());
+        if slice.is_empty() {
+            return;
+        }
+
+        std::thread::scope(|scope| {
+            let f = &f;
+            let mut handles = Vec::with_capacity(1 + (slice.len() - 1) / chunk);
+            for (index, shard) in slice.chunks(chunk).enumerate() {
+                let start = index * chunk;
+                handles.push(scope.spawn(move || f(start, shard)));
+            }
+            for handle in handles {
+                match handle.join() {
+                    Ok(()) => {}
+                    Err(payload) => std::panic::resume_unwind(payload),
+                }
+            }
+        });
+    }
 }
 
 impl<'brand, T> Extend<T> for BrandedVec<'brand, T> {

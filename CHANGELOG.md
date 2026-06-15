@@ -15,6 +15,9 @@ All notable changes to `melinoe` are documented here. The format follows
 - [minor] Extended `halo::BrandedVec` with owned vector structural operations
   and default-`std` partitioned mutation adapters over Melinoe
   `PartitionPlan` / `WriterShard` shards.
+- [minor] Exposed `PartitionPlan::chunk_len_for` and added Halo read-side
+  partition adapters for concurrent shared-slice mapping/iteration without a
+  second scheduler.
 - [minor] `thread_cached!` macro (`thread_cached` module): per-thread cached
   value with `get_or_init`/`set`/`get`/`clear`, expanding to the
   nightly-`#[thread_local]` / stable-`thread_local!` cfg pair. Consolidates the
