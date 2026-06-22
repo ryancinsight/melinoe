@@ -266,6 +266,7 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
     ///
     /// Since the underlying queue is stored as up to two disjoint contiguous slices,
     /// this function will partition each slice in turn and merge the results.
+    /// If the queue is contiguous, the second slice is empty and is skipped.
     #[cfg(feature = "std")]
     #[inline]
     pub fn partition_map_with<'a, P, R, F>(
@@ -281,6 +282,12 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
         F: Fn(usize, &[T]) -> R + Sync,
     {
         let (s1, s2) = self.as_slices(permit);
+        if s1.is_empty() {
+            return alloc::vec::Vec::new();
+        }
+        if s2.is_empty() {
+            return melinoe::sync::partition_read_map_with(s1, plan, f);
+        }
         let mut r1 = melinoe::sync::partition_read_map_with(s1, plan, &f);
         let r2 = melinoe::sync::partition_read_map_with(s2, plan, move |start, slice| {
             f(s1.len() + start, slice)
@@ -304,10 +311,15 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
         F: Fn(usize, &[T]) + Sync,
     {
         let (s1, s2) = self.as_slices(permit);
+        if s1.is_empty() {
+            return;
+        }
         melinoe::sync::partition_read_for_each_with(s1, plan, &f);
-        melinoe::sync::partition_read_for_each_with(s2, plan, move |start, slice| {
-            f(s1.len() + start, slice)
-        });
+        if !s2.is_empty() {
+            melinoe::sync::partition_read_for_each_with(s2, plan, move |start, slice| {
+                f(s1.len() + start, slice)
+            });
+        }
     }
 }
 

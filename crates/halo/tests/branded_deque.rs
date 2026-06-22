@@ -258,3 +258,22 @@ fn partition_for_each_reads_all_shared_shards() {
         assert_eq!(VISITED.load(Ordering::SeqCst), 21);
     });
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_contiguous_deque_correctness() {
+    use melinoe::sync::PartitionPlan;
+    brand_scope(|token| {
+        let mut original = VecDeque::new();
+        original.extend([10_usize, 20, 30, 40]);
+        let deque = BrandedVecDeque::from(original);
+
+        // Deque is contiguous, s2 should be empty and skipped.
+        let sums =
+            deque.partition_map_with(&token, PartitionPlan::chunk_size(2), |start, shard| {
+                (start, shard.iter().sum::<usize>())
+            });
+
+        assert_eq!(sums, vec![(0, 30), (2, 70)]);
+    });
+}
