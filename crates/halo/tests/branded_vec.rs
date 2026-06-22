@@ -267,3 +267,13 @@ fn test_zero_copy_conversions_preserve_buffer_pointer() {
         assert_eq!(converted, &[42, 43, 44]);
     });
 }
+
+#[test]
+fn test_branded_vec_clone_with() {
+    brand_scope(|token| {
+        let values = BrandedVec::from_iter([10_i32, 20, 30]);
+        let cloned = values.clone_with(&token);
+        assert_eq!(cloned.len(), 3);
+        assert_eq!(cloned.as_slice(&token), &[10, 20, 30]);
+    });
+}

@@ -277,3 +277,210 @@ fn partition_map_contiguous_deque_correctness() {
         assert_eq!(sums, vec![(0, 30), (2, 70)]);
     });
 }
+
+#[test]
+fn test_branded_deque_cow_boundary_helpers() {
+    use alloc::borrow::Cow;
+    use melinoe::RetainDecision;
+
+    brand_scope(|token| {
+        // 1. Contiguous case (no wrap-around)
+        let mut original = VecDeque::new();
+        original.extend([1_i32, 2, 3]);
+        let deque = BrandedVecDeque::from(original);
+
+        let cow = deque.borrow_cow(&token);
+        assert!(matches!(cow, Cow::Borrowed(_)));
+        assert_eq!(&*cow, &[1, 2, 3]);
+
+        let retained = deque.retain_cow(&token);
+        assert!(matches!(retained, Cow::Owned(_)));
+        assert_eq!(&*retained, &[1, 2, 3]);
+
+        let cow_if_borrow = deque.cow_if(&token, RetainDecision::Borrow);
+        assert!(matches!(cow_if_borrow, Cow::Borrowed(_)));
+
+        let cow_if_retain = deque.cow_if(&token, RetainDecision::Retain);
+        assert!(matches!(cow_if_retain, Cow::Owned(_)));
+
+        // 2. Wrapped case (force wrap-around)
+        let mut original_wrapped = VecDeque::with_capacity(8);
+        for i in 0..6 {
+            original_wrapped.push_back(i);
+        }
+        for _ in 0..3 {
+            original_wrapped.pop_front();
+        }
+        for i in 6..9 {
+            original_wrapped.push_back(i);
+        }
+        // Logical queue: [3, 4, 5, 6, 7, 8]
+        let deque_wrapped = BrandedVecDeque::from(original_wrapped);
+
+        let cow_wrapped = deque_wrapped.borrow_cow(&token);
+        // Wrapped deques must allocate and return Cow::Owned
+        assert!(matches!(cow_wrapped, Cow::Owned(_)));
+        assert_eq!(&*cow_wrapped, &[3, 4, 5, 6, 7, 8]);
+    });
+}
+
+#[test]
+fn test_branded_deque_cow_with() {
+    use alloc::borrow::Cow;
+    use melinoe::{Borrowed, Retained};
+
+    brand_scope(|token| {
+        // 1. Contiguous case
+        let mut original = VecDeque::new();
+        original.extend([10_i32, 20, 30]);
+        let deque = BrandedVecDeque::from(original);
+
+        let cow_borrowed = deque.cow_with(&token, Borrowed);
+        assert!(matches!(cow_borrowed, Cow::Borrowed(_)));
+        assert_eq!(&*cow_borrowed, &[10, 20, 30]);
+
+        let cow_retained = deque.cow_with(&token, Retained);
+        assert!(matches!(cow_retained, Cow::Owned(_)));
+        assert_eq!(&*cow_retained, &[10, 20, 30]);
+
+        // 2. Wrapped case
+        let mut original_wrapped = VecDeque::with_capacity(8);
+        for i in 0..6 {
+            original_wrapped.push_back(i);
+        }
+        for _ in 0..3 {
+            original_wrapped.pop_front();
+        }
+        for i in 6..9 {
+            original_wrapped.push_back(i);
+        }
+        let deque_wrapped = BrandedVecDeque::from(original_wrapped);
+
+        let cow_borrowed_wrapped = deque_wrapped.cow_with(&token, Borrowed);
+        // Wrapped must allocate and return Cow::Owned
+        assert!(matches!(cow_borrowed_wrapped, Cow::Owned(_)));
+        assert_eq!(&*cow_borrowed_wrapped, &[3, 4, 5, 6, 7, 8]);
+    });
+}
+
+#[test]
+fn test_branded_deque_clone_with() {
+    brand_scope(|token| {
+        let mut original = VecDeque::new();
+        original.extend([100_i32, 200, 300]);
+        let deque = BrandedVecDeque::from(original);
+
+        let cloned = deque.clone_with(&token);
+        assert_eq!(cloned.len(), 3);
+        let (s1, s2) = cloned.as_slices(&token);
+        assert_eq!(s1, &[100, 200, 300]);
+        assert_eq!(s2, &[]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_for_each_mut_contiguous_deque_correctness() {
+    use melinoe::sync::PartitionPlan;
+    brand_scope(|token| {
+        let mut original = VecDeque::new();
+        original.extend([0_usize; 8]);
+        let mut deque = BrandedVecDeque::from(original);
+
+        deque.partition_for_each_mut_with(PartitionPlan::chunk_size(2), |start, shard| {
+            for (offset, value) in shard.iter_mut().enumerate() {
+                *value = start + offset;
+            }
+        });
+
+        let (s1, s2) = deque.as_slices(&token);
+        assert_eq!(s1, &[0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(s2, &[]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_for_each_mut_wrapped_deque_correctness() {
+    use melinoe::sync::PartitionPlan;
+    brand_scope(|token| {
+        let mut original = VecDeque::with_capacity(8);
+        for _ in 0..6 {
+            original.push_back(0);
+        }
+        for _ in 0..3 {
+            original.pop_front();
+        }
+        for _ in 6..9 {
+            original.push_back(0);
+        }
+        // Logical queue has length 6 (all zeros)
+        let mut deque = BrandedVecDeque::from(original);
+
+        deque.partition_for_each_mut_with(PartitionPlan::chunk_size(2), |start, shard| {
+            for (offset, value) in shard.iter_mut().enumerate() {
+                *value = start + offset;
+            }
+        });
+
+        let (s1, s2) = deque.as_slices(&token);
+        let mut result = alloc::vec::Vec::new();
+        result.extend(s1.iter().copied());
+        result.extend(s2.iter().copied());
+        assert_eq!(result, &[0, 1, 2, 3, 4, 5]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_mut_contiguous_deque_correctness() {
+    use melinoe::sync::PartitionPlan;
+    brand_scope(|token| {
+        let mut original = VecDeque::new();
+        original.extend([1_usize; 6]);
+        let mut deque = BrandedVecDeque::from(original);
+
+        let lengths = deque.partition_map_mut_with(PartitionPlan::chunk_size(2), |start, shard| {
+            for value in shard.iter_mut() {
+                *value += start;
+            }
+            shard.len()
+        });
+
+        assert_eq!(lengths, [2, 2, 2]);
+        let (s1, s2) = deque.as_slices(&token);
+        assert_eq!(s1, &[1, 1, 3, 3, 5, 5]);
+        assert_eq!(s2, &[]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_mut_wrapped_deque_correctness() {
+    use melinoe::sync::PartitionPlan;
+    brand_scope(|token| {
+        let mut original = VecDeque::with_capacity(8);
+        for _ in 0..6 {
+            original.push_back(1);
+        }
+        for _ in 0..3 {
+            original.pop_front();
+        }
+        for _ in 6..9 {
+            original.push_back(1);
+        }
+        let mut deque = BrandedVecDeque::from(original);
+
+        let lengths = deque.partition_map_mut_with(PartitionPlan::chunk_size(2), |start, shard| {
+            for value in shard.iter_mut() {
+                *value += start;
+            }
+            shard.len()
+        });
+
+        assert_eq!(lengths, [2, 2, 1, 1]);
+        let (s1, s2) = deque.as_slices(&token);
+        assert_eq!(s1, &[1, 1, 3, 3, 5]);
+        assert_eq!(s2, &[6]);
+    });
+}

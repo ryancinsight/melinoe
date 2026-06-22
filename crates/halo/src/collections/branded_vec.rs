@@ -239,6 +239,17 @@ impl<'brand, T> BrandedVec<'brand, T> {
         self.cells.borrow_cow_with(permit, policy)
     }
 
+    /// Clone the branded vector by presenting a read permit.
+    #[inline]
+    #[must_use]
+    pub fn clone_with<'a, P>(&'a self, permit: P) -> Self
+    where
+        T: Clone,
+        P: ReadPermit<'brand> + 'a,
+    {
+        Self::from_iter(self.as_slice(permit).iter().cloned())
+    }
+
     /// Return a `Cow` according to a runtime retain decision.
     #[inline]
     pub fn cow_if<'a, P>(&'a self, permit: P, decision: RetainDecision) -> Cow<'a, [T]>

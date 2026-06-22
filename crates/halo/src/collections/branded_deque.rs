@@ -32,10 +32,13 @@
 //!    disjointness of $(S_1, S_2)$ guarantees that pointer transmutation does not introduce
 //!    overlapping `&mut [T]` regions. $\blacksquare$
 
+use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
 use core::iter::FromIterator;
 
-use melinoe::{MelinoeCell, MelinoeMut, MelinoeRef, ReadPermit, WritePermit};
+use melinoe::{
+    CowPolicy, MelinoeCell, MelinoeMut, MelinoeRef, ReadPermit, RetainDecision, WritePermit,
+};
 
 /// A branded double-ended queue backed by `VecDeque<MelinoeCell<'brand, T>>`.
 ///
@@ -171,13 +174,15 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
     {
         let (s1, s2) = self.cells.as_slices();
         // SAFETY: The presence of `ReadPermit<'brand>` guarantees no concurrent mutation is possible.
-        // We cast &[MelinoeCell] to &UnsafeCell<[T]> to preserve provenance correctly before dereferencing.
+        // We cast the MelinoeCell slices to plain slices. Since MelinoeCell is #[repr(transparent)]
+        // over UnsafeCell<T>, they share layout and provenance.
         unsafe {
-            let u1 =
-                &*(s1 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
-            let u2 =
-                &*(s2 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
-            (&*(u1.get() as *const [T]), &*(u2.get() as *const [T]))
+            let s1_ptr = s1.as_ptr() as *const T;
+            let s2_ptr = s2.as_ptr() as *const T;
+            (
+                core::slice::from_raw_parts(s1_ptr, s1.len()),
+                core::slice::from_raw_parts(s2_ptr, s2.len()),
+            )
         }
     }
 
@@ -190,13 +195,14 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
     {
         let (s1, s2) = self.cells.as_slices();
         // SAFETY: The presence of `WritePermit<'brand>` guarantees exclusive access to the branded scope.
-        // We cast &[MelinoeCell] to &UnsafeCell<[T]> to preserve provenance correctly before dereferencing.
+        // We cast the MelinoeCell slices to mutable slices using UnsafeCell's raw pointer to preserve provenance.
         unsafe {
-            let u1 =
-                &*(s1 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
-            let u2 =
-                &*(s2 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
-            (&mut *u1.get(), &mut *u2.get())
+            let s1_ptr = s1.as_ptr() as *const core::cell::UnsafeCell<T> as *mut T;
+            let s2_ptr = s2.as_ptr() as *const core::cell::UnsafeCell<T> as *mut T;
+            (
+                core::slice::from_raw_parts_mut(s1_ptr, s1.len()),
+                core::slice::from_raw_parts_mut(s2_ptr, s2.len()),
+            )
         }
     }
 
@@ -320,6 +326,150 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
                 f(s1.len() + start, slice)
             });
         }
+    }
+
+    /// Return a `Cow` view over the queue, borrowing zero-copy if contiguous,
+    /// or cloning into an owned vector if it wraps around.
+    #[inline]
+    pub fn borrow_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
+    where
+        T: Clone,
+        P: ReadPermit<'brand> + 'a,
+    {
+        let (s1, s2) = self.as_slices(permit);
+        if s2.is_empty() {
+            Cow::Borrowed(s1)
+        } else {
+            let mut v = alloc::vec::Vec::with_capacity(s1.len() + s2.len());
+            v.extend_from_slice(s1);
+            v.extend_from_slice(s2);
+            Cow::Owned(v)
+        }
+    }
+
+    /// Return an owned `Cow` by cloning all queue elements into a vector.
+    #[inline]
+    pub fn retain_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
+    where
+        T: Clone,
+        P: ReadPermit<'brand> + 'a,
+    {
+        let (s1, s2) = self.as_slices(permit);
+        let mut v = alloc::vec::Vec::with_capacity(s1.len() + s2.len());
+        v.extend_from_slice(s1);
+        v.extend_from_slice(s2);
+        Cow::Owned(v)
+    }
+
+    /// Return a `Cow` according to a runtime retain decision.
+    #[inline]
+    pub fn cow_if<'a, P>(&'a self, permit: P, decision: RetainDecision) -> Cow<'a, [T]>
+    where
+        T: Clone,
+        P: ReadPermit<'brand> + 'a,
+    {
+        match decision {
+            RetainDecision::Borrow => self.borrow_cow(permit),
+            RetainDecision::Retain => self.retain_cow(permit),
+        }
+    }
+
+    /// Return a `Cow` according to a compile-time ZST retain policy.
+    ///
+    /// If the queue is contiguous, the decision is routed to the policy `C`.
+    /// If the queue wraps around, it is always cloned into an owned vector.
+    #[inline]
+    pub fn cow_with<'a, P, C>(&'a self, permit: P, _policy: C) -> Cow<'a, [T]>
+    where
+        T: Clone,
+        P: ReadPermit<'brand> + 'a,
+        C: CowPolicy,
+    {
+        let (s1, s2) = self.as_slices(permit);
+        if s2.is_empty() {
+            C::cow(s1)
+        } else {
+            let mut v = alloc::vec::Vec::with_capacity(s1.len() + s2.len());
+            v.extend_from_slice(s1);
+            v.extend_from_slice(s2);
+            Cow::Owned(v)
+        }
+    }
+
+    /// Clone the branded queue by presenting a read permit.
+    #[inline]
+    #[must_use]
+    pub fn clone_with<'a, P>(&'a self, permit: P) -> Self
+    where
+        T: Clone,
+        P: ReadPermit<'brand> + 'a,
+    {
+        let (s1, s2) = self.as_slices(permit);
+        let mut cloned = Self::with_capacity(self.len());
+        cloned.extend(s1.iter().cloned().chain(s2.iter().cloned()));
+        cloned
+    }
+
+    /// Split the queue into disjoint writer shards and mutate them
+    /// concurrently according to `plan`.
+    ///
+    /// Since the underlying queue is stored as up to two disjoint contiguous slices,
+    /// this function will partition each slice in turn and run them concurrently.
+    /// If the queue is contiguous, the second slice is empty and is skipped.
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn partition_for_each_mut_with<F>(&mut self, plan: melinoe::sync::PartitionPlan, f: F)
+    where
+        T: Send,
+        F: Fn(usize, &mut [T]) + Sync,
+    {
+        let (s1, s2) = self.cells.as_mut_slices();
+        if s1.is_empty() {
+            return;
+        }
+        melinoe::sync::partition_for_each_with(s1, plan, |start, mut shard| {
+            f(start, shard.as_mut_slice());
+        });
+        if !s2.is_empty() {
+            let offset = s1.len();
+            melinoe::sync::partition_for_each_with(s2, plan, move |start, mut shard| {
+                f(offset + start, shard.as_mut_slice());
+            });
+        }
+    }
+
+    /// Split the queue into disjoint writer shards and return one result per
+    /// shard in partition order.
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn partition_map_mut_with<R, F>(
+        &mut self,
+        plan: melinoe::sync::PartitionPlan,
+        f: F,
+    ) -> alloc::vec::Vec<R>
+    where
+        T: Send,
+        R: Send,
+        F: Fn(usize, &mut [T]) -> R + Sync,
+    {
+        let (s1, s2) = self.cells.as_mut_slices();
+        if s1.is_empty() {
+            return alloc::vec::Vec::new();
+        }
+        if s2.is_empty() {
+            return melinoe::sync::partition_map_with(s1, plan, |start, mut shard| {
+                f(start, shard.as_mut_slice())
+            });
+        }
+        let mut r1 = melinoe::sync::partition_map_with(s1, plan, |start, mut shard| {
+            f(start, shard.as_mut_slice())
+        });
+        let offset = s1.len();
+        let r2 = melinoe::sync::partition_map_with(s2, plan, move |start, mut shard| {
+            f(offset + start, shard.as_mut_slice())
+        });
+        r1.extend(r2);
+        r1
     }
 }
 
