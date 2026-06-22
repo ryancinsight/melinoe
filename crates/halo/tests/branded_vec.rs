@@ -223,3 +223,47 @@ fn partition_for_each_reads_all_shared_shards() {
         assert_eq!(values.as_slice(&token), &[1, 2, 3, 4, 5, 6]);
     });
 }
+
+#[test]
+fn new_vec_apis_drain_split_off_append() {
+    brand_scope(|token| {
+        let mut values = BrandedVec::from_iter([1_i32, 2, 3, 4, 5]);
+
+        // test drain
+        {
+            let drained: Vec<i32> = values.drain(1..4).collect();
+            assert_eq!(drained, [2, 3, 4]);
+            assert_eq!(values.as_slice(&token), &[1, 5]);
+        }
+
+        // test split_off
+        let mut other = values.split_off(1);
+        assert_eq!(values.as_slice(&token), &[1]);
+        assert_eq!(other.as_slice(&token), &[5]);
+
+        // test append
+        values.append(&mut other);
+        assert_eq!(values.as_slice(&token), &[1, 5]);
+        assert_eq!(other.as_slice(&token), &[]);
+    });
+}
+
+#[test]
+fn test_zero_copy_conversions_preserve_buffer_pointer() {
+    brand_scope(|token| {
+        let mut original = Vec::with_capacity(10);
+        original.extend([42_i32, 43, 44]);
+        let original_ptr = original.as_ptr();
+
+        let branded = BrandedVec::from(original);
+        assert_eq!(branded.len(), 3);
+        assert_eq!(branded.capacity(), 10);
+        assert_eq!(branded.as_slice(&token), &[42, 43, 44]);
+
+        let converted = branded.into_vec();
+        assert_eq!(converted.len(), 3);
+        assert_eq!(converted.capacity(), 10);
+        assert_eq!(converted.as_ptr(), original_ptr);
+        assert_eq!(converted, &[42, 43, 44]);
+    });
+}

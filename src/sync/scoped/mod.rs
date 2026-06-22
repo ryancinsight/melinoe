@@ -1,4 +1,14 @@
-//! `std`-gated demonstration of cross-thread exclusive handoff.
+//! `std`-gated demonstration of cross-thread exclusive handoff and partition execution.
+
+mod partition;
+
+pub use partition::{
+    clear_parallel_executor, partition_for_each, partition_for_each_available,
+    partition_for_each_with, partition_map, partition_map_available, partition_map_with,
+    partition_read_for_each, partition_read_for_each_available, partition_read_for_each_with,
+    partition_read_map, partition_read_map_available, partition_read_map_with,
+    register_parallel_executor, ParallelExecutorFn, PartitionPlan,
+};
 
 use super::SyncRegionToken;
 

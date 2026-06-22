@@ -452,4 +452,137 @@ mod concurrent {
 
         assert_eq!(concurrent, sequential);
     }
+
+    #[test]
+    fn read_partition_map_with_delegates_to_driver() {
+        let values: Vec<usize> = (0..16).collect();
+        let sums = melinoe::sync::partition_read_map_with(
+            &values,
+            PartitionPlan::chunk_size(4),
+            |_start, shard| shard.iter().sum::<usize>(),
+        );
+        assert_eq!(sums, [6, 22, 38, 54]);
+    }
+
+    #[test]
+    fn read_partition_for_each_with_delegates_to_driver() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let values: Vec<usize> = (0..16).collect();
+        let sum = AtomicUsize::new(0);
+        melinoe::sync::partition_read_for_each_with(
+            &values,
+            PartitionPlan::chunk_size(4),
+            |_start, shard| {
+                sum.fetch_add(shard.iter().sum::<usize>(), Ordering::SeqCst);
+            },
+        );
+        assert_eq!(sum.load(Ordering::SeqCst), 120);
+    }
+
+    #[test]
+    fn custom_executor_panic_safety_drops_success_elements() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        static DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
+        DROP_COUNT.store(0, Ordering::SeqCst);
+
+        struct DropItem;
+        impl Drop for DropItem {
+            fn drop(&mut self) {
+                DROP_COUNT.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        unsafe fn test_executor(
+            num_tasks: usize,
+            task_fn: unsafe fn(usize, *mut ()),
+            data: *mut (),
+        ) {
+            for i in 0..num_tasks {
+                unsafe {
+                    task_fn(i, data);
+                }
+            }
+        }
+
+        register_parallel_executor(test_executor);
+
+        let mut cells: Vec<MelinoeCell<'_, usize>> = (0..4).map(|_| MelinoeCell::new(0)).collect();
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            partition_map_with(&mut cells, PartitionPlan::chunk_size(1), |index, _shard| {
+                if index == 2 {
+                    panic!("Task 2 failed");
+                }
+                DropItem
+            });
+        }));
+
+        clear_parallel_executor();
+
+        assert!(result.is_err());
+        // Tasks 0, 1, 3 succeeded and produced DropItem. Task 2 panicked.
+        // Therefore, exactly 3 DropItem instances should have been created and dropped by the panic guard.
+        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn read_custom_executor_panic_safety_drops_success_elements() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        static DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
+        DROP_COUNT.store(0, Ordering::SeqCst);
+
+        struct DropItem;
+        impl Drop for DropItem {
+            fn drop(&mut self) {
+                DROP_COUNT.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        unsafe fn test_executor(
+            num_tasks: usize,
+            task_fn: unsafe fn(usize, *mut ()),
+            data: *mut (),
+        ) {
+            for i in 0..num_tasks {
+                unsafe {
+                    task_fn(i, data);
+                }
+            }
+        }
+
+        register_parallel_executor(test_executor);
+
+        let values: Vec<usize> = vec![0; 4];
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            melinoe::sync::partition_read_map_with(
+                &values,
+                PartitionPlan::chunk_size(1),
+                |index, _shard| {
+                    if index == 2 {
+                        panic!("Task 2 failed");
+                    }
+                    DropItem
+                },
+            );
+        }));
+
+        clear_parallel_executor();
+
+        assert!(result.is_err());
+        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn partition_plan_const_constructors() {
+        const PLAN_PARTS: PartitionPlan = PartitionPlan::parts(4);
+        const PLAN_CHUNK: PartitionPlan = PartitionPlan::chunk_size(1024);
+        const PLAN_AVAIL: PartitionPlan = PartitionPlan::available_parallelism();
+
+        assert!(matches!(PLAN_PARTS, PartitionPlan::Parts(_)));
+        assert!(matches!(PLAN_CHUNK, PartitionPlan::ChunkSize(_)));
+        assert!(matches!(PLAN_AVAIL, PartitionPlan::AvailableParallelism));
+    }
 }

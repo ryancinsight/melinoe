@@ -131,3 +131,130 @@ fn structural_vecdeque_operations() {
         assert!(deque.is_empty());
     });
 }
+
+#[test]
+fn new_deque_apis_drain_split_off_append_retain_mut_extend() {
+    brand_scope(|token| {
+        let mut deque = BrandedVecDeque::from_iter([1_i32, 2, 3, 4, 5]);
+
+        // test drain
+        {
+            let drained: alloc::vec::Vec<i32> = deque.drain(1..4).collect();
+            assert_eq!(drained, [2, 3, 4]);
+            let (s1, s2) = deque.as_slices(&token);
+            assert_eq!(s1, &[1, 5]);
+            assert_eq!(s2, &[]);
+        }
+
+        // test split_off
+        let mut other = deque.split_off(1);
+        let (s1, _) = deque.as_slices(&token);
+        assert_eq!(s1, &[1]);
+        let (o1, _) = other.as_slices(&token);
+        assert_eq!(o1, &[5]);
+
+        // test append
+        deque.append(&mut other);
+        let (s1, _) = deque.as_slices(&token);
+        assert_eq!(s1, &[1, 5]);
+        let (o1, _) = other.as_slices(&token);
+        assert_eq!(o1, &[]);
+
+        // test retain_mut
+        deque.retain_mut(|x| {
+            *x += 1;
+            *x != 6
+        });
+        let (s1, _) = deque.as_slices(&token);
+        assert_eq!(s1, &[2]);
+
+        // test extend
+        deque.extend([10, 20]);
+        let (s1, _) = deque.as_slices(&token);
+        assert_eq!(s1, &[2, 10, 20]);
+    });
+}
+
+#[test]
+fn test_branded_deque_into_iterator() {
+    let mut deque = BrandedVecDeque::new();
+    deque.push_back(100_i32);
+    deque.push_back(200);
+    deque.push_front(50);
+
+    let collected: alloc::vec::Vec<i32> = deque.into_iter().collect();
+    assert_eq!(collected, &[50, 100, 200]);
+}
+
+#[test]
+fn test_zero_copy_vec_deque_conversions() {
+    let mut original = VecDeque::with_capacity(10);
+    original.push_back(42_i32);
+    original.push_back(43);
+    original.push_front(41);
+
+    let cap_before = original.capacity();
+
+    let branded = BrandedVecDeque::from(original);
+    assert_eq!(branded.len(), 3);
+    assert_eq!(branded.capacity(), cap_before);
+
+    let converted = branded.into_vec_deque();
+    assert_eq!(converted.len(), 3);
+    assert_eq!(converted.capacity(), cap_before);
+    assert_eq!(
+        converted.into_iter().collect::<alloc::vec::Vec<_>>(),
+        &[41, 42, 43]
+    );
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_reads_wrapped_deque_correctly() {
+    use melinoe::sync::PartitionPlan;
+    brand_scope(|token| {
+        let mut deque = BrandedVecDeque::with_capacity(8);
+        for i in 0..6 {
+            deque.push_back(i);
+        }
+        for _ in 0..3 {
+            deque.pop_front();
+        }
+        for i in 6..9 {
+            deque.push_back(i);
+        }
+        // Logical queue should have values: [3, 4, 5, 6, 7, 8]
+        assert_eq!(deque.len(), 6);
+
+        let sums =
+            deque.partition_map_with(&token, PartitionPlan::chunk_size(2), |start, shard| {
+                (start, shard.iter().sum::<usize>())
+            });
+
+        // The first slice of len 5 is partitioned into: chunk 1 (offset 0, len 2, sum 3+4=7), chunk 2 (offset 2, len 2, sum 5+6=11), chunk 3 (offset 4, len 1, sum 7).
+        // The second slice of len 1 is partitioned into: chunk 1 (offset 5, len 1, sum 8).
+        assert_eq!(sums, vec![(0, 7), (2, 11), (4, 7), (5, 8)]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_for_each_reads_all_shared_shards() {
+    use melinoe::sync::PartitionPlan;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static VISITED: AtomicUsize = AtomicUsize::new(0);
+    VISITED.store(0, Ordering::SeqCst);
+
+    brand_scope(|token| {
+        let mut original = VecDeque::new();
+        original.extend([1_usize, 2, 3, 4, 5, 6]);
+        let deque = BrandedVecDeque::from(original);
+
+        deque.partition_for_each_with(&token, PartitionPlan::chunk_size(2), |_start, shard| {
+            VISITED.fetch_add(shard.iter().sum::<usize>(), Ordering::SeqCst);
+        });
+
+        assert_eq!(VISITED.load(Ordering::SeqCst), 21);
+    });
+}

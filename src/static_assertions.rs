@@ -9,7 +9,7 @@ use core::mem::{align_of, size_of};
 
 #[cfg(target_has_atomic = "64")]
 use core::sync::atomic::AtomicU64;
-use core::sync::atomic::{AtomicBool, AtomicUsize};
+use core::sync::atomic::{AtomicBool, AtomicU16, AtomicU8, AtomicUsize};
 
 use crate::region::WriterShard;
 use crate::sync::{SyncRegionToken, ThreadLocalToken};
@@ -63,6 +63,10 @@ const _: () = {
     }
     assert!(size_of::<BrandedAtomic<'static, AtomicBool>>() == size_of::<AtomicBool>());
     assert!(align_of::<BrandedAtomic<'static, AtomicBool>>() == align_of::<AtomicBool>());
+    assert!(size_of::<BrandedAtomic<'static, AtomicU8>>() == size_of::<AtomicU8>());
+    assert!(align_of::<BrandedAtomic<'static, AtomicU8>>() == align_of::<AtomicU8>());
+    assert!(size_of::<BrandedAtomic<'static, AtomicU16>>() == size_of::<AtomicU16>());
+    assert!(align_of::<BrandedAtomic<'static, AtomicU16>>() == align_of::<AtomicU16>());
 
     // ── Ordering and Cow policies are ZSTs: they route strategy at compile time. ──
     assert!(size_of::<Relaxed>() == 0);

@@ -1,5 +1,6 @@
 use core::sync::atomic::{
-    AtomicBool, AtomicI32, AtomicI64, AtomicIsize, AtomicU32, AtomicU64, AtomicUsize, Ordering,
+    AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16, AtomicU32,
+    AtomicU64, AtomicU8, AtomicUsize, Ordering,
 };
 
 pub(crate) mod sealed {
@@ -133,6 +134,11 @@ impl_atomic_int!(AtomicI32, i32);
 impl_atomic_int!(AtomicU64, u64);
 #[cfg(target_has_atomic = "64")]
 impl_atomic_int!(AtomicI64, i64);
+
+impl_atomic_int!(AtomicU8, u8);
+impl_atomic_int!(AtomicI8, i8);
+impl_atomic_int!(AtomicU16, u16);
+impl_atomic_int!(AtomicI16, i16);
 
 impl sealed::Sealed for AtomicBool {}
 

@@ -253,10 +253,37 @@ impl<'brand, T> BrandedVec<'brand, T> {
     #[inline]
     #[must_use]
     pub fn into_vec(self) -> Vec<T> {
-        self.cells
-            .into_iter()
-            .map(MelinoeCell::into_inner)
-            .collect()
+        unsafe {
+            let mut cells = core::mem::ManuallyDrop::new(self.cells);
+            let ptr = cells.as_mut_ptr() as *mut T;
+            Vec::from_raw_parts(ptr, cells.len(), cells.capacity())
+        }
+    }
+
+    /// Create a draining iterator that removes the specified range, yielding the removed values.
+    #[inline]
+    pub fn drain<R>(&mut self, range: R) -> BrandedDrain<'_, 'brand, T>
+    where
+        R: core::ops::RangeBounds<usize>,
+    {
+        BrandedDrain {
+            inner: self.cells.drain(range),
+        }
+    }
+
+    /// Split the vector into two at the given index, returning the right part.
+    #[inline]
+    #[must_use]
+    pub fn split_off(&mut self, at: usize) -> Self {
+        Self {
+            cells: self.cells.split_off(at),
+        }
+    }
+
+    /// Move all elements from `other` into `self`, leaving `other` empty.
+    #[inline]
+    pub fn append(&mut self, other: &mut Self) {
+        self.cells.append(&mut other.cells);
     }
 
     /// Split the vector into disjoint writer shards and mutate them
@@ -318,27 +345,7 @@ impl<'brand, T> BrandedVec<'brand, T> {
         R: Send,
         F: Fn(usize, &[T]) -> R + Sync,
     {
-        let slice = self.as_slice(permit);
-        let chunk = plan.chunk_len_for(slice.len());
-        if slice.is_empty() {
-            return Vec::new();
-        }
-
-        std::thread::scope(|scope| {
-            let f = &f;
-            let mut handles = Vec::with_capacity(1 + (slice.len() - 1) / chunk);
-            for (index, shard) in slice.chunks(chunk).enumerate() {
-                let start = index * chunk;
-                handles.push(scope.spawn(move || f(start, shard)));
-            }
-            handles
-                .into_iter()
-                .map(|handle| match handle.join() {
-                    Ok(value) => value,
-                    Err(payload) => std::panic::resume_unwind(payload),
-                })
-                .collect()
-        })
+        melinoe::sync::partition_read_map_with(self.as_slice(permit), plan, f)
     }
 
     /// Split a permit-gated shared slice into disjoint read shards and run `f`
@@ -355,26 +362,7 @@ impl<'brand, T> BrandedVec<'brand, T> {
         T: Sync,
         F: Fn(usize, &[T]) + Sync,
     {
-        let slice = self.as_slice(permit);
-        let chunk = plan.chunk_len_for(slice.len());
-        if slice.is_empty() {
-            return;
-        }
-
-        std::thread::scope(|scope| {
-            let f = &f;
-            let mut handles = Vec::with_capacity(1 + (slice.len() - 1) / chunk);
-            for (index, shard) in slice.chunks(chunk).enumerate() {
-                let start = index * chunk;
-                handles.push(scope.spawn(move || f(start, shard)));
-            }
-            for handle in handles {
-                match handle.join() {
-                    Ok(()) => {}
-                    Err(payload) => std::panic::resume_unwind(payload),
-                }
-            }
-        });
+        melinoe::sync::partition_read_for_each_with(self.as_slice(permit), plan, f);
     }
 }
 
@@ -403,7 +391,13 @@ impl<'brand, T> FromIterator<T> for BrandedVec<'brand, T> {
 impl<'brand, T> From<Vec<T>> for BrandedVec<'brand, T> {
     #[inline]
     fn from(values: Vec<T>) -> Self {
-        values.into_iter().collect()
+        unsafe {
+            let mut values = core::mem::ManuallyDrop::new(values);
+            let ptr = values.as_mut_ptr() as *mut MelinoeCell<'brand, T>;
+            Self {
+                cells: Vec::from_raw_parts(ptr, values.len(), values.capacity()),
+            }
+        }
     }
 }
 
@@ -416,3 +410,31 @@ impl<'brand, T> IntoIterator for BrandedVec<'brand, T> {
         self.into_vec().into_iter()
     }
 }
+
+/// A draining iterator for `BrandedVec`.
+pub struct BrandedDrain<'a, 'brand, T> {
+    inner: alloc::vec::Drain<'a, MelinoeCell<'brand, T>>,
+}
+
+impl<'a, 'brand, T> Iterator for BrandedDrain<'a, 'brand, T> {
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(MelinoeCell::into_inner)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<'a, 'brand, T> DoubleEndedIterator for BrandedDrain<'a, 'brand, T> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back().map(MelinoeCell::into_inner)
+    }
+}
+
+impl<'a, 'brand, T> ExactSizeIterator for BrandedDrain<'a, 'brand, T> {}

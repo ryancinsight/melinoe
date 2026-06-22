@@ -69,7 +69,7 @@ macro_rules! thread_cached {
             #[cfg(nightly_tls_active)]
             #[thread_local]
             static VALUE: ::core::cell::Cell<Option<$ty>> =
-                const { ::core::cell::Cell::new(None) };
+                ::core::cell::Cell::new(None);
 
             #[cfg(not(nightly_tls_active))]
             ::std::thread_local! {

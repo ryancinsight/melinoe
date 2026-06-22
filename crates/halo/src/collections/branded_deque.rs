@@ -173,12 +173,11 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
         // SAFETY: The presence of `ReadPermit<'brand>` guarantees no concurrent mutation is possible.
         // We cast &[MelinoeCell] to &UnsafeCell<[T]> to preserve provenance correctly before dereferencing.
         unsafe {
-            let u1 = &*(s1 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
-            let u2 = &*(s2 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
-            (
-                &*(u1.get() as *const [T]),
-                &*(u2.get() as *const [T]),
-            )
+            let u1 =
+                &*(s1 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
+            let u2 =
+                &*(s2 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
+            (&*(u1.get() as *const [T]), &*(u2.get() as *const [T]))
         }
     }
 
@@ -193,12 +192,11 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
         // SAFETY: The presence of `WritePermit<'brand>` guarantees exclusive access to the branded scope.
         // We cast &[MelinoeCell] to &UnsafeCell<[T]> to preserve provenance correctly before dereferencing.
         unsafe {
-            let u1 = &*(s1 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
-            let u2 = &*(s2 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
-            (
-                &mut *u1.get(),
-                &mut *u2.get(),
-            )
+            let u1 =
+                &*(s1 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
+            let u2 =
+                &*(s2 as *const [MelinoeCell<'brand, T>] as *const core::cell::UnsafeCell<[T]>);
+            (&mut *u1.get(), &mut *u2.get())
         }
     }
 
@@ -215,6 +213,102 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
     pub fn as_mut_cells(&mut self) -> &mut VecDeque<MelinoeCell<'brand, T>> {
         &mut self.cells
     }
+
+    /// Create a draining iterator that removes the specified range, yielding the removed values.
+    #[inline]
+    pub fn drain<R>(&mut self, range: R) -> BrandedVecDequeDrain<'_, 'brand, T>
+    where
+        R: core::ops::RangeBounds<usize>,
+    {
+        BrandedVecDequeDrain {
+            inner: self.cells.drain(range),
+        }
+    }
+
+    /// Split the queue into two at the given index, returning the right part.
+    #[inline]
+    #[must_use]
+    pub fn split_off(&mut self, at: usize) -> Self {
+        Self {
+            cells: self.cells.split_off(at),
+        }
+    }
+
+    /// Move all elements from `other` into `self`, leaving `other` empty.
+    #[inline]
+    pub fn append(&mut self, other: &mut Self) {
+        self.cells.append(&mut other.cells);
+    }
+
+    /// Retain only values for which `f` returns `true`.
+    #[inline]
+    pub fn retain_mut<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        self.cells.retain_mut(|cell| f(cell.get_mut()));
+    }
+
+    /// Consume the branded queue and return the owned values.
+    #[inline]
+    #[must_use]
+    pub fn into_vec_deque(self) -> VecDeque<T> {
+        unsafe {
+            let cells = core::mem::ManuallyDrop::new(self.cells);
+            core::ptr::read(
+                &*cells as *const VecDeque<MelinoeCell<'brand, T>> as *const VecDeque<T>,
+            )
+        }
+    }
+
+    /// Split a permit-gated shared queue into disjoint read shards and run `f`
+    /// on each shard concurrently, returning per-shard results.
+    ///
+    /// Since the underlying queue is stored as up to two disjoint contiguous slices,
+    /// this function will partition each slice in turn and merge the results.
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn partition_map_with<'a, P, R, F>(
+        &'a self,
+        permit: P,
+        plan: melinoe::sync::PartitionPlan,
+        f: F,
+    ) -> alloc::vec::Vec<R>
+    where
+        P: ReadPermit<'brand> + 'a,
+        T: Sync,
+        R: Send,
+        F: Fn(usize, &[T]) -> R + Sync,
+    {
+        let (s1, s2) = self.as_slices(permit);
+        let mut r1 = melinoe::sync::partition_read_map_with(s1, plan, &f);
+        let r2 = melinoe::sync::partition_read_map_with(s2, plan, move |start, slice| {
+            f(s1.len() + start, slice)
+        });
+        r1.extend(r2);
+        r1
+    }
+
+    /// Split a permit-gated shared queue into disjoint read shards and run `f`
+    /// on each shard concurrently, discarding results.
+    #[cfg(feature = "std")]
+    #[inline]
+    pub fn partition_for_each_with<'a, P, F>(
+        &'a self,
+        permit: P,
+        plan: melinoe::sync::PartitionPlan,
+        f: F,
+    ) where
+        P: ReadPermit<'brand> + 'a,
+        T: Sync,
+        F: Fn(usize, &[T]) + Sync,
+    {
+        let (s1, s2) = self.as_slices(permit);
+        melinoe::sync::partition_read_for_each_with(s1, plan, &f);
+        melinoe::sync::partition_read_for_each_with(s2, plan, move |start, slice| {
+            f(s1.len() + start, slice)
+        });
+    }
 }
 
 impl<'brand, T> FromIterator<T> for BrandedVecDeque<'brand, T> {
@@ -223,5 +317,66 @@ impl<'brand, T> FromIterator<T> for BrandedVecDeque<'brand, T> {
         Self {
             cells: iter.into_iter().map(MelinoeCell::new).collect(),
         }
+    }
+}
+
+impl<'brand, T> Extend<T> for BrandedVecDeque<'brand, T> {
+    #[inline]
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        self.cells.extend(iter.into_iter().map(MelinoeCell::new));
+    }
+}
+
+/// A draining iterator for `BrandedVecDeque`.
+pub struct BrandedVecDequeDrain<'a, 'brand, T> {
+    inner: alloc::collections::vec_deque::Drain<'a, MelinoeCell<'brand, T>>,
+}
+
+impl<'a, 'brand, T> Iterator for BrandedVecDequeDrain<'a, 'brand, T> {
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(MelinoeCell::into_inner)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<'a, 'brand, T> DoubleEndedIterator for BrandedVecDequeDrain<'a, 'brand, T> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back().map(MelinoeCell::into_inner)
+    }
+}
+
+impl<'a, 'brand, T> ExactSizeIterator for BrandedVecDequeDrain<'a, 'brand, T> {}
+
+impl<'brand, T> From<VecDeque<T>> for BrandedVecDeque<'brand, T> {
+    #[inline]
+    fn from(values: VecDeque<T>) -> Self {
+        unsafe {
+            let values = core::mem::ManuallyDrop::new(values);
+            let cells = core::ptr::read(
+                &*values as *const VecDeque<T> as *const VecDeque<MelinoeCell<'brand, T>>,
+            );
+            Self { cells }
+        }
+    }
+}
+
+impl<'brand, T> IntoIterator for BrandedVecDeque<'brand, T> {
+    type Item = T;
+    type IntoIter = alloc::collections::vec_deque::IntoIter<T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.into_vec_deque().into_iter()
     }
 }

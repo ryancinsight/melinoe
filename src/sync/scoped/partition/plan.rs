@@ -21,7 +21,7 @@ impl PartitionPlan {
     /// Create a fixed-part plan, clamping zero to one.
     #[inline]
     #[must_use]
-    pub fn parts(parts: usize) -> Self {
+    pub const fn parts(parts: usize) -> Self {
         Self::Parts(nonzero_or_one(parts))
     }
 
@@ -35,7 +35,7 @@ impl PartitionPlan {
     /// Create a fixed-chunk-size plan, clamping zero to one.
     #[inline]
     #[must_use]
-    pub fn chunk_size(chunk_size: usize) -> Self {
+    pub const fn chunk_size(chunk_size: usize) -> Self {
         Self::ChunkSize(nonzero_or_one(chunk_size))
     }
 
@@ -69,8 +69,13 @@ impl PartitionPlan {
 }
 
 #[inline]
-fn nonzero_or_one(value: usize) -> NonZeroUsize {
-    NonZeroUsize::new(value).unwrap_or_else(|| NonZeroUsize::new(1).expect("1 is non-zero"))
+const fn nonzero_or_one(value: usize) -> NonZeroUsize {
+    if let Some(nz) = NonZeroUsize::new(value) {
+        nz
+    } else {
+        // SAFETY: 1 is non-zero
+        unsafe { NonZeroUsize::new_unchecked(1) }
+    }
 }
 
 #[inline]

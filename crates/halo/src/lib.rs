@@ -27,7 +27,7 @@ extern crate std;
 pub mod collections;
 
 #[doc(inline)]
-pub use collections::{BrandedVec, BrandedVecDeque};
+pub use collections::{BrandedDrain, BrandedVec, BrandedVecDeque, BrandedVecDequeDrain};
 
 /// Common imports for Melinoe-backed Halo collection code.
 pub mod prelude {
