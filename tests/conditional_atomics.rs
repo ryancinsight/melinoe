@@ -155,3 +155,55 @@ fn exclusive_token_send_posture() {
         a.store_exclusive(1, t);
     };
 }
+
+#[test]
+fn test_new_branded_atomic_operations() {
+    brand_scope(|token| {
+        let a: BrandedAtomic<'_, core::sync::atomic::AtomicU64> = BrandedAtomic::new(0b1100);
+        let snap = token.share();
+
+        // 1. fetch_xor and fetch_xor_with
+        assert_eq!(a.fetch_xor(0b1010, snap, Ordering::Relaxed), 0b1100); // 0b1100 ^ 0b1010 = 0b0110
+        assert_eq!(a.fetch_xor_with(0b0011, snap, Relaxed), 0b0110); // 0b0110 ^ 0b0011 = 0b0101
+
+        // 2. fetch_nand and fetch_nand_with
+        // current value is 0b0101
+        assert_eq!(a.fetch_nand(0b1111, snap, Ordering::Relaxed), 0b0101); // !(0b0101 & 0b1111) = !0b0101 = 0b1010 (on 64 bits: !5 = -6)
+                                                                           // Let's store a clean value to test nand_with easily
+        a.store(0b0101, snap, Ordering::Relaxed);
+        assert_eq!(a.fetch_nand_with(0b0011, snap, Relaxed), 0b0101); // !(0b0101 & 0b0011) = !(0b0001) = 0xffff_ffff_ffff_fffe
+
+        // 3. fetch_max and fetch_max_with
+        a.store(10, snap, Ordering::Relaxed);
+        assert_eq!(a.fetch_max(5, snap, Ordering::Relaxed), 10); // max(10, 5) = 10, value stays 10
+        assert_eq!(a.fetch_max_with(20, snap, Relaxed), 10); // max(10, 20) = 20, value becomes 20
+        assert_eq!(a.load(snap, Ordering::Relaxed), 20);
+
+        // 4. fetch_min and fetch_min_with
+        assert_eq!(a.fetch_min(30, snap, Ordering::Relaxed), 20); // min(20, 30) = 20, value stays 20
+        assert_eq!(a.fetch_min_with(10, snap, Relaxed), 20); // min(20, 10) = 10, value becomes 10
+        assert_eq!(a.load(snap, Ordering::Relaxed), 10);
+
+        // 5. fetch_update and fetch_update_with (integer)
+        assert_eq!(
+            a.fetch_update(Ordering::Relaxed, Ordering::Relaxed, snap, |v| Some(v + 5)),
+            Ok(10)
+        );
+        assert_eq!(a.load(snap, Ordering::Relaxed), 15);
+        assert_eq!(a.fetch_update_with(snap, Relaxed, |v| Some(v * 2)), Ok(15));
+        assert_eq!(a.load(snap, Ordering::Relaxed), 30);
+
+        // 6. fetch_update on AtomicBool
+        let flag: BrandedAtomic<'_, core::sync::atomic::AtomicBool> = BrandedAtomic::new(false);
+        assert_eq!(
+            flag.fetch_update(Ordering::Relaxed, Ordering::Relaxed, snap, |v| Some(!v)),
+            Ok(false)
+        );
+        assert!(flag.load(snap, Ordering::Relaxed));
+        assert_eq!(
+            flag.fetch_update_with(snap, Relaxed, |v| Some(!v)),
+            Ok(true)
+        );
+        assert!(!flag.load(snap, Ordering::Relaxed));
+    });
+}

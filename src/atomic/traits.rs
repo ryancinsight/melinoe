@@ -43,6 +43,15 @@ pub trait Atomic: sealed::Sealed {
     /// is layout-valid and the pointer carries interior-mutable provenance.
     #[doc(hidden)]
     fn value_ptr(&self) -> *mut Self::Value;
+    #[doc(hidden)]
+    fn atomic_fetch_update<F>(
+        &self,
+        set_order: Ordering,
+        fetch_order: Ordering,
+        f: F,
+    ) -> Result<Self::Value, Self::Value>
+    where
+        F: FnMut(Self::Value) -> Option<Self::Value>;
 }
 
 /// Integer atomics, which additionally support arithmetic/bitwise RMW.
@@ -55,6 +64,14 @@ pub trait AtomicInt: Atomic {
     fn atomic_fetch_and(&self, value: Self::Value, order: Ordering) -> Self::Value;
     #[doc(hidden)]
     fn atomic_fetch_or(&self, value: Self::Value, order: Ordering) -> Self::Value;
+    #[doc(hidden)]
+    fn atomic_fetch_xor(&self, value: Self::Value, order: Ordering) -> Self::Value;
+    #[doc(hidden)]
+    fn atomic_fetch_nand(&self, value: Self::Value, order: Ordering) -> Self::Value;
+    #[doc(hidden)]
+    fn atomic_fetch_max(&self, value: Self::Value, order: Ordering) -> Self::Value;
+    #[doc(hidden)]
+    fn atomic_fetch_min(&self, value: Self::Value, order: Ordering) -> Self::Value;
 }
 
 macro_rules! impl_atomic_int {
@@ -103,6 +120,18 @@ macro_rules! impl_atomic_int {
                 // SAFETY of later deref: same layout as `$value`, interior-mutable.
                 self as *const Self as *mut $value
             }
+            #[inline]
+            fn atomic_fetch_update<F>(
+                &self,
+                set_order: Ordering,
+                fetch_order: Ordering,
+                f: F,
+            ) -> Result<$value, $value>
+            where
+                F: FnMut($value) -> Option<$value>,
+            {
+                self.fetch_update(set_order, fetch_order, f)
+            }
         }
 
         impl AtomicInt for $atomic {
@@ -121,6 +150,22 @@ macro_rules! impl_atomic_int {
             #[inline]
             fn atomic_fetch_or(&self, value: $value, order: Ordering) -> $value {
                 self.fetch_or(value, order)
+            }
+            #[inline]
+            fn atomic_fetch_xor(&self, value: $value, order: Ordering) -> $value {
+                self.fetch_xor(value, order)
+            }
+            #[inline]
+            fn atomic_fetch_nand(&self, value: $value, order: Ordering) -> $value {
+                self.fetch_nand(value, order)
+            }
+            #[inline]
+            fn atomic_fetch_max(&self, value: $value, order: Ordering) -> $value {
+                self.fetch_max(value, order)
+            }
+            #[inline]
+            fn atomic_fetch_min(&self, value: $value, order: Ordering) -> $value {
+                self.fetch_min(value, order)
             }
         }
     };
@@ -182,5 +227,17 @@ impl Atomic for AtomicBool {
     #[inline]
     fn value_ptr(&self) -> *mut bool {
         self as *const Self as *mut bool
+    }
+    #[inline]
+    fn atomic_fetch_update<F>(
+        &self,
+        set_order: Ordering,
+        fetch_order: Ordering,
+        f: F,
+    ) -> Result<bool, bool>
+    where
+        F: FnMut(bool) -> Option<bool>,
+    {
+        self.fetch_update(set_order, fetch_order, f)
     }
 }

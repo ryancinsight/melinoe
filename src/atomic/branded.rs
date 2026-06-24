@@ -219,6 +219,38 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
         self.inner
             .atomic_compare_exchange(current, new, O::RMW, O::FAILURE)
     }
+
+    /// Atomic fetch-update. Requires a [`ReadPermit`] for `'brand`.
+    #[inline]
+    pub fn fetch_update<P, F>(
+        &self,
+        set_order: Ordering,
+        fetch_order: Ordering,
+        _permit: P,
+        f: F,
+    ) -> Result<A::Value, A::Value>
+    where
+        P: ReadPermit<'brand>,
+        F: FnMut(A::Value) -> Option<A::Value>,
+    {
+        self.inner.atomic_fetch_update(set_order, fetch_order, f)
+    }
+
+    /// Atomic fetch-update using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_update_with<P, O, F>(
+        &self,
+        _permit: P,
+        _order: O,
+        f: F,
+    ) -> Result<A::Value, A::Value>
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+        F: FnMut(A::Value) -> Option<A::Value>,
+    {
+        self.inner.atomic_fetch_update(O::RMW, O::FAILURE, f)
+    }
 }
 
 impl<'brand, A: AtomicInt> BrandedAtomic<'brand, A> {
@@ -296,6 +328,82 @@ impl<'brand, A: AtomicInt> BrandedAtomic<'brand, A> {
         O: AtomicOrder,
     {
         self.inner.atomic_fetch_or(value, O::RMW)
+    }
+
+    /// Atomic fetch-xor. Requires a [`ReadPermit`] for `'brand`.
+    #[inline]
+    pub fn fetch_xor<P>(&self, value: A::Value, _permit: P, order: Ordering) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+    {
+        self.inner.atomic_fetch_xor(value, order)
+    }
+
+    /// Atomic fetch-xor using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_xor_with<P, O>(&self, value: A::Value, _permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.inner.atomic_fetch_xor(value, O::RMW)
+    }
+
+    /// Atomic fetch-nand. Requires a [`ReadPermit`] for `'brand`.
+    #[inline]
+    pub fn fetch_nand<P>(&self, value: A::Value, _permit: P, order: Ordering) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+    {
+        self.inner.atomic_fetch_nand(value, order)
+    }
+
+    /// Atomic fetch-nand using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_nand_with<P, O>(&self, value: A::Value, _permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.inner.atomic_fetch_nand(value, O::RMW)
+    }
+
+    /// Atomic fetch-max. Requires a [`ReadPermit`] for `'brand`.
+    #[inline]
+    pub fn fetch_max<P>(&self, value: A::Value, _permit: P, order: Ordering) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+    {
+        self.inner.atomic_fetch_max(value, order)
+    }
+
+    /// Atomic fetch-max using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_max_with<P, O>(&self, value: A::Value, _permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.inner.atomic_fetch_max(value, O::RMW)
+    }
+
+    /// Atomic fetch-min. Requires a [`ReadPermit`] for `'brand`.
+    #[inline]
+    pub fn fetch_min<P>(&self, value: A::Value, _permit: P, order: Ordering) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+    {
+        self.inner.atomic_fetch_min(value, order)
+    }
+
+    /// Atomic fetch-min using a compile-time ZST ordering policy.
+    #[inline]
+    pub fn fetch_min_with<P, O>(&self, value: A::Value, _permit: P, _order: O) -> A::Value
+    where
+        P: ReadPermit<'brand>,
+        O: AtomicOrder,
+    {
+        self.inner.atomic_fetch_min(value, O::RMW)
     }
 }
 

@@ -4,6 +4,22 @@ All notable changes to `melinoe` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- [minor] Completed the `BrandedAtomic` shared-phase operation surface to full
+  std-atomic parity: `fetch_xor`, `fetch_nand`, `fetch_max`, `fetch_min`, and the
+  general `fetch_update` (each with a compile-time ZST-ordering `_with` variant),
+  plus the backing `Atomic`/`AtomicInt` trait methods over every standard atomic.
+  The exclusive phase remains plain `&mut` under a `WritePermit`; the shared phase
+  is atomic under a `ReadPermit`. Soundness of the one `unsafe` interior-mutability
+  path (`value_ptr` deref in `with_exclusive`) is **Miri-verified** (Stacked/Tree
+  Borrows clean across all conditional-atomic tests, including the 8-thread
+  concurrent phase-transition stress test). The `&AtomicU64 -> *mut` derivation
+  uses a manual cast rather than `as_ptr()` to preserve the 1.65 MSRV (`as_ptr`
+  stabilized in 1.70).
+
 ## [0.7.0] — 2026-06-12
 
 ### Added
