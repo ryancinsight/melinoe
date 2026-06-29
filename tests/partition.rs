@@ -586,3 +586,43 @@ mod concurrent {
         assert!(matches!(PLAN_AVAIL, PartitionPlan::AvailableParallelism));
     }
 }
+
+// ── Property-based partition correctness: disjoint, complete coverage ──
+//
+// Generalizes the fixed-size `partition_map` examples over arbitrary cell and
+// partition counts. Writing each cell's global index across `parts` shards must
+// (a) cover every index exactly once — the per-shard partial sums equal the
+// closed form 0+1+..+(n-1) — and (b) leave every cell holding its own index,
+// i.e. the partition is disjoint and complete for any (n, parts).
+
+proptest::proptest! {
+    #[test]
+    fn prop_partition_map_covers_every_index_disjointly(
+        n in 1usize..256,
+        raw_parts in 1usize..32,
+    ) {
+        let parts = raw_parts.min(n);
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, u64>> =
+                (0..n).map(|_| MelinoeCell::new(0)).collect();
+            let sums: Vec<u64> =
+                melinoe::sync::partition_map(&mut cells, parts, |start, mut shard| {
+                    let mut local = 0u64;
+                    for (j, slot) in shard.iter_mut().enumerate() {
+                        let v = (start + j) as u64;
+                        *slot = v;
+                        local += v;
+                    }
+                    local
+                });
+            // (a) per-shard partial sums add to 0+1+..+(n-1) → complete coverage.
+            let expected = (n as u64) * (n as u64 - 1) / 2;
+            assert_eq!(sums.iter().sum::<u64>(), expected);
+            // (b) every cell holds its own global index → disjoint, no overwrites.
+            let snap = token.share();
+            for (k, c) in cells.iter().enumerate() {
+                assert_eq!(*c.borrow(snap), k as u64);
+            }
+        });
+    }
+}

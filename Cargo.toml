@@ -34,6 +34,7 @@ nightly = []
 
 [dev-dependencies]
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+proptest = "1"
 
 # The codegen probe exercises the alloc-gated `CellCowExt::borrow_cow` boundary,
 # so it only compiles with `alloc`. Gating it keeps `--no-default-features`
