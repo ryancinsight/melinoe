@@ -650,4 +650,24 @@ proptest::proptest! {
         // every element visited exactly once → complete, disjoint coverage.
         proptest::prop_assert_eq!(covered.load(Ordering::Relaxed), n);
     }
+
+    /// `partition_read_map` returns one result per shard in partition order.
+    /// `parts` is a *target*: the actual shard count is `ceil(n / ceil(n/parts))`,
+    /// which lies in `[1, parts]`. For any (n, parts), folding each shard to its
+    /// element-sum yields partial sums whose total is the closed form
+    /// `0+1+..+(n-1)` — i.e. the shards tile the slice disjointly and completely,
+    /// and the per-shard results are returned (not dropped).
+    #[test]
+    fn prop_partition_read_map_returns_disjoint_shard_sums(
+        n in 1usize..256,
+        raw_parts in 1usize..32,
+    ) {
+        let parts = raw_parts.min(n);
+        let data: Vec<u64> = (0..n as u64).collect();
+        let sums: Vec<u64> =
+            melinoe::sync::partition_read_map(&data, parts, |_start, shard| shard.iter().sum());
+        proptest::prop_assert!(!sums.is_empty() && sums.len() <= parts);
+        let expected = (n as u64) * (n as u64 - 1) / 2;
+        proptest::prop_assert_eq!(sums.iter().sum::<u64>(), expected);
+    }
 }
