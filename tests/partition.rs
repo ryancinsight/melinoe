@@ -625,4 +625,29 @@ proptest::proptest! {
             }
         });
     }
+
+    /// Read-side partition over a plain slice: the disjoint shared shards passed
+    /// to `f` must tile the whole slice in order — each element appears in
+    /// exactly one shard at its correct global offset, and the shard lengths sum
+    /// to the slice length for any (n, parts). No `brand_scope` needed.
+    #[test]
+    fn prop_partition_read_tiles_slice_in_order(
+        n in 0usize..256,
+        raw_parts in 1usize..32,
+    ) {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let parts = raw_parts.min(n.max(1));
+        let data: Vec<usize> = (0..n).collect();
+        let covered = AtomicUsize::new(0);
+        melinoe::sync::partition_read_for_each(&data, parts, |start, shard| {
+            // each element equals its global index → shard sits at offset `start`,
+            // contents are in order, and shards do not overlap.
+            for (j, &v) in shard.iter().enumerate() {
+                assert_eq!(v, start + j);
+            }
+            covered.fetch_add(shard.len(), Ordering::Relaxed);
+        });
+        // every element visited exactly once → complete, disjoint coverage.
+        proptest::prop_assert_eq!(covered.load(Ordering::Relaxed), n);
+    }
 }
