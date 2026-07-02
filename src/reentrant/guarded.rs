@@ -4,7 +4,8 @@ use core::cell::{Cell, UnsafeCell};
 
 /// A thread-confined cell that hands out one exclusive `&mut T` at a time.
 ///
-/// This is the value-owning counterpart to [`ReentrancyCell`]: it brands
+/// This is the value-owning counterpart to [`ReentrancyCell`](crate::reentrant::ReentrancyCell):
+/// it brands
 /// *ambient, persistent* exclusive state — a thread's allocator cache, a
 /// per-thread arena cursor — that is touched across a whole thread's lifetime
 /// and therefore cannot live inside a [`brand_scope`](crate::brand_scope)
