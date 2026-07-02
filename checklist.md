@@ -4,6 +4,17 @@ Target version: 0.7.0
 
 ## Current micro-sprint (0.7.0)
 
+- [x] [minor] CR-7: add `WriterShard::par_chunks` / `region::ParChunks`, the
+  indexed disjoint-shard accessor (`len`, `# Safety` `get_unchecked_chunk`) that
+  encapsulates the `from_raw_parts_mut` range math consumers (moirai-parallel)
+  hand-roll; value-semantic tests (exact `len`, partition coverage, disjoint
+  non-aliasing writes, single-partition, `Send`/`Sync`), a `compile_fail`
+  brand-escape doctest, and a `ShardChunks` len-parity unit test. Miri-clean.
+- [x] [patch] M-3: consolidate the two partition drivers' duplicated executor-path
+  scaffolding into one generic `driver_core::drive`; split `driver.rs` into
+  `driver_core`/`map`/`read_map` leaf modules; drive write-path partitioning
+  through `par_chunks`. Public exports and unwind/init-tracking behavior byte-for-
+  byte preserved (existing partition + panic-safety tests pass unmodified).
 - [x] [patch] Split `region` into `shard` and `chunks` leaf modules, preserving
   public re-exports while separating shard capability logic from exact-size
   chunk iteration.

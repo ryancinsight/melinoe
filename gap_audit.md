@@ -246,8 +246,63 @@ example despite the checklist claiming the gate passed. Fixed by declaring
 matrix (`--no-default-features`, `--no-default-features --features alloc`,
 `--features std`) now builds and tests clean.
 
+### Partition driver executor-path duplication — gap closed (M-3)
+
+`sync::scoped::partition::driver.rs` (~531 lines) held two near-duplicate driver
+bodies — `partition_map_with` (mutable `WriterShard`) and
+`partition_read_map_with` (shared `&[T]`) — that shared byte-for-byte identical
+executor-path scaffolding: the `MaybeUninit` out-buffer allocation, the
+`ExecutorDropGuard` leak/panic handling, the panic-collection mutex, and the
+`Vec::from_raw_parts` teardown on both the success and unwind paths. Extracted a
+single generic engine `driver_core::drive<R, Run>(num_chunks, run)` that owns all
+of that machinery; the two drivers now differ only in the `run: Fn(usize) -> R`
+closure they pass (mutable-shard construction vs shared sub-slice). The
+executor-path `unsafe` (out-buffer init tracking + free-backing-on-unwind) lives
+in exactly one place. Split `driver.rs` into `driver_core`/`map`/`read_map` leaf
+modules; public exports unchanged. The drop-only-initialized-slots + unwind
+teardown behavior is preserved exactly — the existing
+`custom_executor_panic_safety_drops_success_elements` /
+`read_custom_executor_panic_safety_drops_success_elements` tests (asserting a
+drop count of exactly 3 when task 2 of 4 panics) pass unmodified, as does the
+whole partition suite. Evidence tier: value-semantic + differential
+(concurrent-vs-sequential) tests preserved unmodified, plus Miri on the partition
+module.
+
+### Indexed disjoint-shard accessor — gap closed (CR-7)
+
+`WriterShard::chunks` → `ShardChunks` is a *sequential* lending iterator (each
+`next()` reborrows the remainder), unsuitable for a work-stealing pool that wants
+partition `c` on demand. Consumers therefore re-derived disjoint sub-slices with
+`core::slice::from_raw_parts_mut` and a hand-written SAFETY argument
+(`moirai-parallel/src/melinoe_ext.rs`), and Melinoe's own driver hand-rolled the
+same range math internally. Added `WriterShard::par_chunks(chunk_size) ->
+ParChunks<'a, 'brand, T>` (`region::par_chunks`): an indexed view holding the base
+pointer, region length, and (clamped ≥1) chunk size, exposing `len() = ceil(len /
+chunk)` and `unsafe get_unchecked_chunk(index) -> WriterShard`. The
+`from_raw_parts_mut` sub-slicing now lives in exactly one authoritative
+`// SAFETY:` block; the disjointness contract (distinct indices → non-overlapping
+ranges, each requested at most once — exactly the `ParallelExecutorFn` guarantee)
+is documented in one `# Safety` section. `get` is `unsafe` because the returned
+shard carries the region's `'a` (not `&self`), so a pool can hold several
+partitions live at once — the type system cannot enforce single-use, so the
+caller promises it. The write-side partition driver now drives through
+`par_chunks`, closing the internal duplication. Evidence tier: value-semantic
+tests (exact `len`, complete/disjoint partition coverage, two-index non-aliasing
+mutation, single-partition, `Send`/`Sync`), a `ShardChunks` len-parity unit test,
+a `compile_fail` brand-escape doctest, and **Miri** (Stacked/Tree Borrows clean)
+on the two-live-index aliasing test.
+
 ## Residual risk / non-goals
 
+- **Cross-repo CR-7 follow-up (moirai-parallel).** `moirai-parallel/src/melinoe_ext.rs`
+  still re-derives disjoint sub-slices via `DisjointMutPtr` +
+  `from_raw_parts_mut` in `par_partition_for_each` / `par_partition_map`. Melinoe
+  now owns the primitive (`WriterShard::par_chunks`) that replaces this, but the
+  consumer refactor is **deliberately not done here**: it belongs in the moirai
+  repo and is blocked on Melinoe publishing this change (co-evolution: upstream
+  commit + push → `cargo update -p melinoe` in moirai → swap the hand-rolled
+  ranges for `par_chunks(...).get_unchecked_chunk(c)` → verify). Filed as a moirai
+  backlog item; not a Melinoe defect.
 - Projecting arbitrary *separate* cells (not sub-components of one payload) to
   simultaneous `&mut` is intentionally **not** added: distinctness of two
   independent `MelinoeCell`s is not provable to the borrow checker without a

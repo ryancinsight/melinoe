@@ -8,6 +8,36 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Added
 
+- [minor] Added `WriterShard::par_chunks(chunk_size) -> ParChunks<'a, 'brand, T>`,
+  the *indexed* random-access counterpart to the sequential `WriterShard::chunks`
+  (`ShardChunks`) lending iterator. `ParChunks::len()` reports the exact partition
+  count `ceil(region_len / chunk_size)` and the `# Safety`-documented
+  `ParChunks::get_unchecked_chunk(index)` returns the disjoint `WriterShard` for a
+  partition without sequential `&mut` threading — the shape a work-stealing pool
+  (e.g. `moirai-parallel`) needs. It is the single authoritative home for the
+  `from_raw_parts_mut` disjoint sub-slice range math those consumers otherwise
+  hand-roll. Disjointness (distinct indices → non-overlapping ranges, each
+  requested at most once) is the caller's contract, stated in one `// SAFETY:`;
+  the returned shard carries the region's `'a`/`'brand` so it cannot outlive the
+  brand (enforced by a `compile_fail` doctest). Miri-verified (Stacked/Tree
+  Borrows clean) that two indices held live simultaneously do not alias.
+
+### Changed
+
+- [patch] Consolidated the duplicated executor-path scaffolding of the two
+  partition drivers into one generic engine `sync::scoped::partition::driver_core`
+  (`drive`). The mutable-shard (`partition_map*`) and shared-slice
+  (`partition_read_map*`) drivers previously each carried a near-identical copy of
+  the `MaybeUninit` out-buffer allocation, `ExecutorDropGuard` leak/panic handling,
+  panic mutex, and `Vec::from_raw_parts` teardown; they now differ only in the
+  per-index task closure they hand to `drive`. The write path drives partitioning
+  through the new `WriterShard::par_chunks`/`ParChunks` primitive instead of
+  re-deriving `from_raw_parts_mut` ranges internally. The `driver.rs` file was
+  split by concern into `driver_core`/`map`/`read_map` leaf modules; public exports
+  and the drop-only-initialized-slots + free-backing-on-unwind behavior are
+  unchanged (all existing partition tests, including the panic-safety drop-count
+  tests, pass unmodified).
+
 - [minor] Completed the `BrandedAtomic` shared-phase operation surface to full
   std-atomic parity: `fetch_xor`, `fetch_nand`, `fetch_max`, `fetch_min`, and the
   general `fetch_update` (each with a compile-time ZST-ordering `_with` variant),
