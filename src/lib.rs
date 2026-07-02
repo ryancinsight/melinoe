@@ -234,7 +234,7 @@ pub use cell::{CellSliceExt, MelinoeCell, MelinoeMut, MelinoeRef};
 #[doc(inline)]
 pub use reentrant::{GuardedCell, ReentrancyCell};
 #[doc(inline)]
-pub use region::WriterShard;
+pub use region::{ParChunks, WriterShard};
 #[doc(inline)]
 pub use token::{
     brand_scope, ExclusiveToken, InvariantLifetime, ReadPermit, SharedReadToken, WritePermit,

@@ -47,7 +47,9 @@
 //! ```
 
 mod chunks;
+mod par_chunks;
 mod shard;
 
 pub use chunks::ShardChunks;
+pub use par_chunks::ParChunks;
 pub use shard::WriterShard;

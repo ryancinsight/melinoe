@@ -1,6 +1,6 @@
 use crate::cell::MelinoeCell;
 
-use super::ShardChunks;
+use super::{par_chunks::ParChunks, ShardChunks};
 
 /// A move-only, [`Send`] write capability over a disjoint partition of a branded
 /// region.
@@ -128,6 +128,25 @@ impl<'a, 'brand, T> WriterShard<'a, 'brand, T> {
             rest: Some(self.cells),
             chunk: chunk_size.max(1),
         }
+    }
+
+    /// Consume the shard into an *indexed* view of its disjoint `chunk_size`-cell
+    /// partitions (the random-access counterpart to [`chunks`](Self::chunks)).
+    ///
+    /// Where [`chunks`](Self::chunks) yields partitions sequentially — each
+    /// `next()` reborrowing the remainder — [`ParChunks`] exposes
+    /// [`len`](ParChunks::len) and
+    /// [`get_unchecked_chunk`](ParChunks::get_unchecked_chunk) so a caller can
+    /// request partition `c` on demand without threading `&mut` state through the
+    /// sequence. This is the shape a work-stealing thread pool needs (e.g.
+    /// `moirai-parallel`'s partition drivers), and it is the single authoritative
+    /// home for the disjoint-sub-slice range math those consumers would otherwise
+    /// hand-roll.
+    ///
+    /// `chunk_size` is clamped to at least `1`.
+    #[inline]
+    pub fn par_chunks(self, chunk_size: usize) -> ParChunks<'a, 'brand, T> {
+        ParChunks::new(self.cells, chunk_size)
     }
 
     /// Borrow the underlying cells immutably (e.g. for token-mediated reads).
