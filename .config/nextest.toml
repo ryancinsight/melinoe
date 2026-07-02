@@ -1,0 +1,5 @@
+# Test-time budget: a test crossing 30s is flagged slow (a performance defect
+# in the code under test — profile and optimize, never raise this limit); a
+# second 30s period terminates it as a hang/deadlock to root-cause.
+[profile.default]
+slow-timeout = { period = "30s", terminate-after = 2 }

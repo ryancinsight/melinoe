@@ -18,9 +18,7 @@ default-members = ["."]
 resolver = "2"
 
 [features]
-default = ["std", "parallel", "mnemosyne-memory"]
-parallel = []
-mnemosyne-memory = ["alloc"]
+default = ["std"]
 # `alloc` pulls in the `alloc` crate so branded cells over heap-owning payloads
 # (`Box`, `Vec`, ...) can be exercised in examples/tests without `std`.
 alloc = []
