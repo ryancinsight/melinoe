@@ -325,6 +325,36 @@ fn test_branded_deque_cow_boundary_helpers() {
 }
 
 #[test]
+fn contiguous_cow_borrows_preserve_pointer_identity_and_retained_cow_owns() {
+    use alloc::borrow::Cow;
+
+    brand_scope(|token| {
+        let deque = BrandedVecDeque::from_iter([11_i32, 13, 17, 19]);
+        let (front, back) = deque.as_slices(&token);
+        assert_eq!(front, &[11, 13, 17, 19]);
+        assert_eq!(back, &[]);
+
+        let borrowed = deque.borrow_cow(&token);
+        match borrowed {
+            Cow::Borrowed(values) => {
+                assert_eq!(values, &[11, 13, 17, 19]);
+                assert_eq!(values.as_ptr(), front.as_ptr());
+            }
+            Cow::Owned(values) => panic!("contiguous borrow_cow must borrow, got {values:?}"),
+        }
+
+        let retained = deque.retain_cow(&token);
+        match retained {
+            Cow::Owned(values) => {
+                assert_eq!(values, &[11, 13, 17, 19]);
+                assert_ne!(values.as_ptr(), front.as_ptr());
+            }
+            Cow::Borrowed(values) => panic!("retain_cow must own, got {values:?}"),
+        }
+    });
+}
+
+#[test]
 fn test_branded_deque_cow_with() {
     use alloc::borrow::Cow;
     use melinoe::{Borrowed, Retained};

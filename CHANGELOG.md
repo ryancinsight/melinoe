@@ -6,8 +6,18 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-07-05
+
 ### Added
 
+- [minor] Migrated `halo::BrandedVecDeque<'brand, T>` as the next staged Halo
+  collection. The surface stores `VecDeque<MelinoeCell<'brand, T>>`, delegates
+  element/split-slice/`Cow` access to Melinoe read/write permits, and routes
+  default-`std` read/write partition adapters through Melinoe partition drivers
+  instead of a Halo-local `GhostToken` / `GhostCell` layer.
+- [patch] Added the `halo` `branded_deque` Criterion harness covering
+  contiguous split-slice reads, wrapped split-slice reads, read partitions, and
+  write partitions for `BrandedVecDeque`.
 - [minor] Added `WriterShard::par_chunks(chunk_size) -> ParChunks<'a, 'brand, T>`,
   the *indexed* random-access counterpart to the sequential `WriterShard::chunks`
   (`ShardChunks`) lending iterator. `ParChunks::len()` reports the exact partition
