@@ -26,6 +26,22 @@
 //! handoff pattern over [`std::thread::scope`], and [`PartitionPlan`] controls
 //! lock-free disjoint write scheduling by fixed part count, reported hardware
 //! parallelism, or fixed chunk size.
+//!
+//! # Device-buffer ownership transfer
+//!
+//! Accelerator buffers follow the same pattern as host slabs: store the real
+//! backend buffer handle in a [`MelinoeCell`](crate::MelinoeCell), move the
+//! [`SyncRegionToken`] into the subsystem that records the device write, and
+//! return the token only after the stream is submitted or synchronized. The
+//! token move is the ownership-transfer proof; Melinoe does not wrap or mock
+//! the backend buffer.
+//!
+//! After submission, [`SyncRegionToken::share`] mints a
+//! [`SharedReadToken`](crate::SharedReadToken) for concurrent readback,
+//! validation, or observer streams. Fence and completion counters that are
+//! touched from both phases use [`BrandedAtomic`](crate::BrandedAtomic): plain
+//! access under the returned write token, atomic access under shared read
+//! tokens.
 
 mod tokens;
 

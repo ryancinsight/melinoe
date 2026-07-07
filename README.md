@@ -18,9 +18,10 @@ This repository now also contains `crates/halo`, the Melinoe-backed protective
 collection layer. Halo owns ergonomic data-structure adapters and delegates
 branding, token permits, zero-copy slice views, and conditional `Cow` boundaries
 to `melinoe` rather than carrying an independent ghost-token implementation.
-The first migrated surface is `halo::BrandedVec<'brand, T>`; its default `std`
-feature also routes partitioned concurrent reads and mutation through Melinoe's
-`PartitionPlan` / `WriterShard` driver.
+The migrated collection surfaces are `halo::BrandedVec<'brand, T>` and
+`halo::BrandedVecDeque<'brand, T>`. Their default `std` feature also routes
+partitioned concurrent reads and mutation through Melinoe's `PartitionPlan` /
+`WriterShard` driver.
 
 > *In Greek myth, Melinoë leads a restless train of phantoms through the night.
 > Here she leads a train of phantom **types** — each a wisp of pure evidence,

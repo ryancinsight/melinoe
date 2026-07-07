@@ -8,6 +8,30 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Added
 
+- [minor] `BrandedVecDeque` gained sharded parallel read/write operations —
+  `partition_map_with`/`partition_for_each_with` (permit-gated shared reads)
+  and `partition_for_each_mut_with`/`partition_map_mut_with` (exclusive
+  mutation) — each taking an explicit `melinoe::sync::PartitionPlan`. Built
+  on a `DequeShardPlan` that maps a flat `0..front_len+back_len` chunk range
+  onto the deque's front/back ring segments and delegates dispatch to
+  `melinoe::sync::partition_read_map_with`, so contiguous and wrapped-around
+  deques share one sharding algorithm; a logical shard crossing the ring
+  wrap is exposed as two physical subshards with stable logical offsets.
+  Covered by contiguous and wrapped-deque correctness tests plus a
+  same-logical-plan consistency check for both the mutation and read paths.
+
+## [0.8.0] — 2026-07-05
+
+### Added
+
+- [minor] Migrated `halo::BrandedVecDeque<'brand, T>` as the next staged Halo
+  collection. The surface stores `VecDeque<MelinoeCell<'brand, T>>`, delegates
+  element/split-slice/`Cow` access to Melinoe read/write permits, and routes
+  default-`std` read/write partition adapters through Melinoe partition drivers
+  instead of a Halo-local `GhostToken` / `GhostCell` layer.
+- [patch] Added the `halo` `branded_deque` Criterion harness covering
+  contiguous split-slice reads, wrapped split-slice reads, read partitions, and
+  write partitions for `BrandedVecDeque`.
 - [minor] Added `WriterShard::par_chunks(chunk_size) -> ParChunks<'a, 'brand, T>`,
   the *indexed* random-access counterpart to the sequential `WriterShard::chunks`
   (`ShardChunks`) lending iterator. `ParChunks::len()` reports the exact partition

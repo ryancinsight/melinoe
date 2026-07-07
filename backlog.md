@@ -13,15 +13,20 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
-(none — 0.7.0 Halo workspace increment closed; see Closed.)
+- Stage D1 (device-buffer ownership-transfer contract test, see the roadmap
+  item above) is in progress in a local `contracts/atlas-device` crate
+  depending on `hephaestus-core`/`hephaestus-wgpu` by local path — not yet
+  committed, workspace-topology decisions (new workspace member, cross-repo
+  `[patch]` overrides) not yet finalized for a mergeable state.
 
 ## Next
 
 - <a id="halo-upstream-migration"></a>[minor] Continue the staged migration of
   `ryancinsight/halo` into `crates/halo`: replace Halo-local `GhostToken` /
-  `GhostCell` surfaces with Melinoe permits/cells collection by collection,
-  discard scratch/log/generated artifacts, and require each migrated collection
-  to land with value-semantic tests, docs, and a benchmark harness.
+  `GhostCell` surfaces with Melinoe permits/cells collection by collection after
+  the `Vec` and `VecDeque` slices, discard scratch/log/generated artifacts, and
+  require each migrated collection to land with value-semantic tests, docs, and
+  a benchmark harness.
 - <a id="semver-registry"></a>[patch] After registry publication, switch
   `cargo-semver-checks` from the `--baseline-rev` git workflow (now established)
   to the default crates.io baseline, and re-run once semver-checks supports the
@@ -45,6 +50,25 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   `halo::BrandedVec` read-side partition map/for-each adapters over
   permit-gated shared slices. Evidence: Melinoe plan-resolution tests, Halo
   shared-shard tests, workspace gates, and benchmark harness compilation.
+- <a id="halo-branded-vecdeque"></a>[minor] Migrated the next lowest-risk
+  upstream Halo collection as `halo::BrandedVecDeque<'brand, T>`:
+  `std::collections::VecDeque` maps directly to one owned standard container,
+  unlike the remaining hash/tree/graph collections with broader invariants.
+  Storage is `VecDeque<MelinoeCell<'brand, T>>`; element, split-slice, `Cow`,
+  clone, read-partition, and write-partition access are gated through Melinoe
+  permits/cells instead of a Halo-local `GhostToken` / `GhostCell` layer.
+  Evidence: value-semantic deque tests and the `branded_deque` Criterion
+  harness.
+- <a id="halo-branded-deque-ops"></a>[minor] Extended `halo::BrandedVecDeque`
+  with the same `std`-gated partitioned mutation/map adapters as `BrandedVec`
+  (`partition_map_with`/`partition_for_each_with` for shared reads,
+  `partition_for_each_mut_with`/`partition_map_mut_with` for exclusive
+  mutation), via a `DequeShardPlan` that maps the flat logical index range
+  onto the deque's front/back ring segments — a shard crossing the wrap
+  boundary is split into two physical subshards sharing one logical offset.
+  Evidence: contiguous and wrapped-deque correctness tests, a same-logical-
+  plan consistency check across both mutation and read paths, workspace
+  nextest/clippy/fmt gates.
 - <a id="region-module-hierarchy"></a>[patch] Region module hierarchy split
   delivered in 0.6.0. `src/region/mod.rs` is now the documentation/re-export
   root, `src/region/shard.rs` owns `WriterShard`, and

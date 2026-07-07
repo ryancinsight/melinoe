@@ -10,6 +10,16 @@ use alloc::collections::VecDeque;
 use halo::BrandedVecDeque;
 use melinoe::brand_scope;
 
+fn wrapped_three_three_queue() -> VecDeque<usize> {
+    let mut values = VecDeque::with_capacity(8);
+    values.extend(0_usize..8);
+    for _ in 0..5 {
+        values.pop_front();
+    }
+    values.extend(8_usize..11);
+    values
+}
+
 #[test]
 fn double_ended_operations_preserve_logical_ordering() {
     brand_scope(|token| {
@@ -278,6 +288,44 @@ fn partition_map_contiguous_deque_correctness() {
     });
 }
 
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_uses_one_logical_plan_for_contiguous_deque() {
+    use melinoe::sync::PartitionPlan;
+
+    brand_scope(|token| {
+        let deque = BrandedVecDeque::from_iter(0_usize..6);
+        let (front, back) = deque.as_slices(&token);
+        assert_eq!(front, &[0, 1, 2, 3, 4, 5]);
+        assert_eq!(back, &[]);
+
+        let shards = deque.partition_map_with(&token, PartitionPlan::parts(2), |start, shard| {
+            (start, shard.to_vec())
+        });
+
+        assert_eq!(shards, vec![(0, vec![0, 1, 2]), (3, vec![3, 4, 5])]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_uses_one_logical_plan_for_wrapped_deque() {
+    use melinoe::sync::PartitionPlan;
+
+    brand_scope(|token| {
+        let deque = BrandedVecDeque::from(wrapped_three_three_queue());
+        let (front, back) = deque.as_slices(&token);
+        assert_eq!(front, &[5, 6, 7]);
+        assert_eq!(back, &[8, 9, 10]);
+
+        let shards = deque.partition_map_with(&token, PartitionPlan::parts(2), |start, shard| {
+            (start, shard.to_vec())
+        });
+
+        assert_eq!(shards, vec![(0, vec![5, 6, 7]), (3, vec![8, 9, 10])]);
+    });
+}
+
 #[test]
 fn test_branded_deque_cow_boundary_helpers() {
     use alloc::borrow::Cow;
@@ -321,6 +369,36 @@ fn test_branded_deque_cow_boundary_helpers() {
         // Wrapped deques must allocate and return Cow::Owned
         assert!(matches!(cow_wrapped, Cow::Owned(_)));
         assert_eq!(&*cow_wrapped, &[3, 4, 5, 6, 7, 8]);
+    });
+}
+
+#[test]
+fn contiguous_cow_borrows_preserve_pointer_identity_and_retained_cow_owns() {
+    use alloc::borrow::Cow;
+
+    brand_scope(|token| {
+        let deque = BrandedVecDeque::from_iter([11_i32, 13, 17, 19]);
+        let (front, back) = deque.as_slices(&token);
+        assert_eq!(front, &[11, 13, 17, 19]);
+        assert_eq!(back, &[]);
+
+        let borrowed = deque.borrow_cow(&token);
+        match borrowed {
+            Cow::Borrowed(values) => {
+                assert_eq!(values, &[11, 13, 17, 19]);
+                assert_eq!(values.as_ptr(), front.as_ptr());
+            }
+            Cow::Owned(values) => panic!("contiguous borrow_cow must borrow, got {values:?}"),
+        }
+
+        let retained = deque.retain_cow(&token);
+        match retained {
+            Cow::Owned(values) => {
+                assert_eq!(values, &[11, 13, 17, 19]);
+                assert_ne!(values.as_ptr(), front.as_ptr());
+            }
+            Cow::Borrowed(values) => panic!("retain_cow must own, got {values:?}"),
+        }
     });
 }
 
@@ -482,5 +560,49 @@ fn partition_map_mut_wrapped_deque_correctness() {
         let (s1, s2) = deque.as_slices(&token);
         assert_eq!(s1, &[1, 1, 3, 3, 5]);
         assert_eq!(s2, &[6]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_mut_uses_one_logical_plan_for_contiguous_deque() {
+    use melinoe::sync::PartitionPlan;
+
+    brand_scope(|token| {
+        let mut deque = BrandedVecDeque::from_iter([1_usize; 6]);
+
+        let lengths = deque.partition_map_mut_with(PartitionPlan::parts(2), |start, shard| {
+            for (offset, value) in shard.iter_mut().enumerate() {
+                *value = start + offset;
+            }
+            shard.len()
+        });
+
+        assert_eq!(lengths, [3, 3]);
+        let (front, back) = deque.as_slices(&token);
+        assert_eq!(front, &[0, 1, 2, 3, 4, 5]);
+        assert_eq!(back, &[]);
+    });
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn partition_map_mut_uses_one_logical_plan_for_wrapped_deque() {
+    use melinoe::sync::PartitionPlan;
+
+    brand_scope(|token| {
+        let mut deque = BrandedVecDeque::from(wrapped_three_three_queue());
+
+        let lengths = deque.partition_map_mut_with(PartitionPlan::parts(2), |start, shard| {
+            for (offset, value) in shard.iter_mut().enumerate() {
+                *value = start + offset;
+            }
+            shard.len()
+        });
+
+        assert_eq!(lengths, [3, 3]);
+        let (front, back) = deque.as_slices(&token);
+        assert_eq!(front, &[0, 1, 2]);
+        assert_eq!(back, &[3, 4, 5]);
     });
 }

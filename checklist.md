@@ -1,8 +1,23 @@
 # Checklist — melinoe
 
-Target version: 0.7.0
+Target version: 0.8.0
 
-## Current micro-sprint (0.7.0)
+## Current micro-sprint (0.8.0)
+
+- [x] [minor] Migrate the next lowest-risk upstream Halo collection:
+  `halo::BrandedVecDeque<'brand, T>`. Upstream `vec_deque` maps directly to
+  `std::collections::VecDeque`, unlike hash/tree/graph collections with broader
+  invariants, so the Melinoe-backed slice stores `VecDeque<MelinoeCell<'brand,
+  T>>` and routes element/split-slice/`Cow`/partition access through Melinoe
+  permits. Value-semantic deque tests cover logical ordering, permit-gated
+  element mutation, wrapped split-slice mutation, structural operations,
+  zero-copy conversion, pointer-identical contiguous `Cow` borrowing, retained
+  owned `Cow`, read partitions, and write partitions.
+- [x] [patch] Register and add the `halo` `branded_deque` Criterion harness for
+  contiguous split-slice reads, wrapped split-slice reads, write partitions, and
+  read partitions; sync README, backlog, gap audit, changelog, and benchmarks.
+
+## Prior micro-sprint (0.7.0)
 
 - [x] [minor] CR-7: add `WriterShard::par_chunks` / `region::ParChunks`, the
   indexed disjoint-shard accessor (`len`, `# Safety` `get_unchecked_chunk`) that

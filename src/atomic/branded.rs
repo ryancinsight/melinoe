@@ -12,6 +12,12 @@ use crate::token::{InvariantLifetime, ReadPermit, WritePermit};
 /// `#[repr(transparent)]` over the underlying atomic `A` (the brand marker is a
 /// ZST), so it has the same size, alignment, and bit-validity as `A`. It is
 /// `Send`/`Sync` exactly when `A` is (the standard atomics are both).
+///
+/// For device-buffer ownership transfers, use `BrandedAtomic` for fence,
+/// generation, and completion counters that are written by the exclusive owner
+/// before or after stream submission and read by shared observers. The exclusive
+/// phase uses plain access under a [`WritePermit`]; the shared phase uses the
+/// real atomic operations under a [`ReadPermit`].
 #[repr(transparent)]
 pub struct BrandedAtomic<'brand, A: Atomic> {
     inner: A,

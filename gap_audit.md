@@ -39,23 +39,25 @@ cross-thread independence tests.
 
 ## Findings
 
-### Halo workspace integration — first slice closed
+### Halo workspace integration — staged collection migration
 
 The upstream `ryancinsight/halo` repository compiles, but the inspected tree
 contains a broad independent ghost-token implementation, large collection/graph
 modules, missing-doc warnings, and scratch/log/generated artifacts. Bulk import
 would introduce a second capability system and break Melinoe's documentation and
-verification discipline. The first integrated slice is therefore `crates/halo`
-with `halo::BrandedVec<'brand, T>` backed by `Vec<MelinoeCell<'brand, T>>`.
-It now also includes owned vector structural operations plus default-`std`
-partitioned read and mutation adapters. Read adapters use
+verification discipline. The integrated `crates/halo` slices are therefore the
+lowest-risk standard containers first: `halo::BrandedVec<'brand, T>` backed by
+`Vec<MelinoeCell<'brand, T>>`, then `halo::BrandedVecDeque<'brand, T>` backed by
+`VecDeque<MelinoeCell<'brand, T>>`. Both expose owned structural operations plus
+default-`std` partitioned read and mutation adapters. Read adapters use
 `PartitionPlan::chunk_len_for` over Melinoe read-permit `&[T]` views; mutation
 adapters reuse Melinoe's `WriterShard` driver rather than adding another
 concurrent scheduler. Evidence tier: type-level Melinoe permit/shard encoding
 plus value-semantic tests for element access, structural mutation, zero-copy
 slice pointer identity, conditional `Cow` borrow/retain behavior, concurrent
-shared-shard reads, and concurrent shard writes. Residual tracked in
-`backlog.md#halo-upstream-migration`.
+shared-shard reads, and concurrent shard writes. `BrandedVecDeque` additionally
+tests wrapped ring-buffer split slices and pointer-identical contiguous
+`Cow::Borrowed` output. Residual tracked in `backlog.md#halo-upstream-migration`.
 
 ### Default provider feature policy — closed
 

@@ -12,6 +12,15 @@ cargo bench --bench conditional_atomics  # BrandedAtomic exclusive/shared/mixed
 #   -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
 ```
 
+Halo collection migration harnesses live in the `halo` workspace crate:
+
+```sh
+cargo bench -p halo --bench branded_vec
+cargo bench -p halo --bench branded_deque
+# faster, lower-confidence sweep:
+#   -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
+```
+
 Figures below are a single refreshed run on a 24-core `x86_64` host (release).
 Equivalence of the work measured is pinned by
 [`tests/differential.rs`](tests/differential.rs), which asserts the mechanisms
@@ -193,6 +202,25 @@ empty case still reserves zero capacity and spawns nothing. The partition-driver
 benchmark black-boxes the input slice so the empty row measures the driver branch
 rather than a compile-time-known `Vec::new()` result. The 0.3.0 rows exercise the
 same scheduler through typed hardware-parallel and chunk-size plans.
+
+### Halo branded collections
+
+The Halo harnesses pin that migrated collections benchmark their production
+permit-gated paths rather than synthetic adapters. `branded_vec` covers
+contiguous `BrandedVec` slice reads plus read/write partition adapters.
+`branded_deque` covers contiguous and wrapped `BrandedVecDeque` split-slice
+reads plus read/write partition adapters over the two `VecDeque` ring-buffer
+segments.
+
+Short-sweep `branded_deque` check on 2026-07-05
+(`--warm-up-time 0.3 --measurement-time 1.0 --sample-size 30`):
+
+| Benchmark | Median interval |
+|-----------|-----------------|
+| `contiguous_slice_sum_4096` | 703-715 ns |
+| `wrapped_slice_sum_4096` | 3.99-4.14 µs |
+| `partition_fill_4096` | 390-407 µs |
+| `partition_sum_4096` | 349-359 µs |
 
 ## Mnemosyne access patterns (`cargo bench --bench mnemosyne`)
 

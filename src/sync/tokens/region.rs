@@ -20,6 +20,16 @@ use crate::token::{InvariantLifetime, ReadPermit, SharedReadToken, WritePermit};
 /// Because the token is move-only for writes yet freely borrowable for reads,
 /// the borrow checker enforces single-writer / multi-reader discipline over the
 /// whole region without a single atomic instruction or lock.
+///
+/// # Device-buffer ownership transfer
+///
+/// A device-buffer owner can store the backend's real buffer handle in a
+/// [`MelinoeCell`](crate::MelinoeCell) and require `SyncRegionToken<'brand>` by
+/// value on the host/device boundary. Moving the token into that boundary
+/// transfers the sole write capability to the code that records the stream or
+/// queue operation. Returning the token after submission or synchronization
+/// restores host-side exclusive capability; borrowing it immutably, or calling
+/// [`share`](Self::share), switches to shared readback/observer capability.
 pub struct SyncRegionToken<'brand> {
     _invariant: InvariantLifetime<'brand>,
 }
