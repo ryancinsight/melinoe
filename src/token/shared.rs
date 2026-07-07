@@ -24,6 +24,12 @@ use super::capability::ReadPermit;
 /// carry the immutable-borrow window, not the concrete owning token's type—so
 /// the same token type serves every owner family. It is `Send + Sync`, enabling
 /// concurrent reads of branded cells across threads.
+///
+/// Device-buffer observers use the same window: after the write owner returns a
+/// [`SyncRegionToken`](crate::sync::SyncRegionToken), a copied
+/// `SharedReadToken` may be sent to multiple readback or validation threads.
+/// While those copies live, no mutable borrow of the region token can exist, so
+/// no host/device write capability for the same brand can be formed.
 #[derive(Clone, Copy)]
 pub struct SharedReadToken<'a, 'brand> {
     _invariant: InvariantLifetime<'brand>,

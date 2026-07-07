@@ -6,6 +6,20 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- [minor] `BrandedVecDeque` gained sharded parallel read/write operations —
+  `partition_map_with`/`partition_for_each_with` (permit-gated shared reads)
+  and `partition_for_each_mut_with`/`partition_map_mut_with` (exclusive
+  mutation) — each taking an explicit `melinoe::sync::PartitionPlan`. Built
+  on a `DequeShardPlan` that maps a flat `0..front_len+back_len` chunk range
+  onto the deque's front/back ring segments and delegates dispatch to
+  `melinoe::sync::partition_read_map_with`, so contiguous and wrapped-around
+  deques share one sharding algorithm; a logical shard crossing the ring
+  wrap is exposed as two physical subshards with stable logical offsets.
+  Covered by contiguous and wrapped-deque correctness tests plus a
+  same-logical-plan consistency check for both the mutation and read paths.
+
 ## [0.8.0] — 2026-07-05
 
 ### Added

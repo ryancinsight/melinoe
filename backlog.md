@@ -13,7 +13,11 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
-(none — 0.8.0 Halo `VecDeque` migration slice closed; see Closed.)
+- Stage D1 (device-buffer ownership-transfer contract test, see the roadmap
+  item above) is in progress in a local `contracts/atlas-device` crate
+  depending on `hephaestus-core`/`hephaestus-wgpu` by local path — not yet
+  committed, workspace-topology decisions (new workspace member, cross-repo
+  `[patch]` overrides) not yet finalized for a mergeable state.
 
 ## Next
 
@@ -55,6 +59,16 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   permits/cells instead of a Halo-local `GhostToken` / `GhostCell` layer.
   Evidence: value-semantic deque tests and the `branded_deque` Criterion
   harness.
+- <a id="halo-branded-deque-ops"></a>[minor] Extended `halo::BrandedVecDeque`
+  with the same `std`-gated partitioned mutation/map adapters as `BrandedVec`
+  (`partition_map_with`/`partition_for_each_with` for shared reads,
+  `partition_for_each_mut_with`/`partition_map_mut_with` for exclusive
+  mutation), via a `DequeShardPlan` that maps the flat logical index range
+  onto the deque's front/back ring segments — a shard crossing the wrap
+  boundary is split into two physical subshards sharing one logical offset.
+  Evidence: contiguous and wrapped-deque correctness tests, a same-logical-
+  plan consistency check across both mutation and read paths, workspace
+  nextest/clippy/fmt gates.
 - <a id="region-module-hierarchy"></a>[patch] Region module hierarchy split
   delivered in 0.6.0. `src/region/mod.rs` is now the documentation/re-export
   root, `src/region/shard.rs` owns `WriterShard`, and
