@@ -1,0 +1,53 @@
+[workspace]
+
+[package]
+name = "melinoe-atlas-device-contract"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+melinoe = { path = "../.." }
+hephaestus-core = { path = "../../../hephaestus/crates/hephaestus-core" }
+hephaestus-wgpu = { path = "../../../hephaestus/crates/hephaestus-wgpu" }
+
+# hephaestus-core/-wgpu pull mnemosyne/moirai/hermes/eunomia through a mix of
+# local-path (hephaestus's own direct deps) and git (via the leto/moirai
+# chain) references; without unifying them to the same local checkouts,
+# Cargo resolves two incompatible copies of the same crate (e.g.
+# mnemosyne-core) and every type crossing that boundary fails to typecheck.
+# Mirrors hephaestus's own [patch] table (../../hephaestus/Cargo.toml), with
+# paths adjusted for this crate's depth under melinoe/contracts/.
+[patch."https://github.com/ryancinsight/Mnemosyne.git"]
+mnemosyne = { path = "../../../mnemosyne/crates/mnemosyne" }
+mnemosyne-core = { path = "../../../mnemosyne/crates/mnemosyne-core" }
+mnemosyne-arena = { path = "../../../mnemosyne/crates/mnemosyne-arena" }
+mnemosyne-local = { path = "../../../mnemosyne/crates/mnemosyne-local" }
+mnemosyne-heap = { path = "../../../mnemosyne/crates/mnemosyne-heap" }
+
+[patch."https://github.com/ryancinsight/Moirai.git"]
+moirai = { path = "../../../moirai/moirai" }
+moirai-core = { path = "../../../moirai/moirai-core" }
+moirai-scheduler = { path = "../../../moirai/moirai-scheduler" }
+moirai-parallel = { path = "../../../moirai/moirai-parallel" }
+moirai-gpu = { path = "../../../moirai/moirai-gpu" }
+moirai-sync = { path = "../../../moirai/moirai-sync" }
+moirai-async = { path = "../../../moirai/moirai-async" }
+moirai-executor = { path = "../../../moirai/moirai-executor" }
+moirai-transport = { path = "../../../moirai/moirai-transport" }
+moirai-iter = { path = "../../../moirai/moirai-iter" }
+moirai-pal = { path = "../../../moirai/moirai-pal" }
+moirai-tls = { path = "../../../moirai/moirai-tls" }
+moirai-http = { path = "../../../moirai/moirai-http" }
+moirai-python = { path = "../../../moirai/moirai-python" }
+moirai-utils = { path = "../../../moirai/moirai-utils" }
+moirai-metrics = { path = "../../../moirai/moirai-metrics" }
+
+[patch."https://github.com/ryancinsight/hermes.git"]
+hermes-simd = { path = "../../../hermes/crates/hermes-simd" }
+
+[patch."https://github.com/ryancinsight/eunomia"]
+eunomia = { path = "../../../eunomia/crates/eunomia" }
+
+[patch."https://github.com/ryancinsight/themis"]
+themis = { path = "../../../themis" }
