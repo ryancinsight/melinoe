@@ -166,7 +166,7 @@ impl<'a, 'brand, T> ParChunks<'a, 'brand, T> {
     ///   while both shards live would alias, which is undefined behavior.
     ///
     /// These are exactly the guarantees the
-    /// [`ParallelExecutorFn`](crate::sync::ParallelExecutorFn) contract already
+    /// [`ParallelExecutor`](crate::sync::ParallelExecutor) contract already
     /// requires of an executor (each index invoked once, none omitted), so a
     /// driver that maps one task to one index satisfies them for free.
     #[inline]

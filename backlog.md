@@ -5,7 +5,7 @@
 melinoe is the capability/ownership-proof foundation. The Atlas GPU program
 (the `hephaestus` device substrate — atlas ADR 0001 — used by coeus/apollo on wgpu +
 CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer ownership:
-- [ ] [minor] Stage D1 support: a documented device-buffer ownership-transfer pattern —
+- [x] [minor] Stage D1 support: a documented device-buffer ownership-transfer pattern —
   moving a `SyncRegionToken` transfers write capability across host/device/stream; a
   `SharedReadToken` fans out concurrent device reads; `BrandedAtomic` covers fence/
   counter values touched on both sides. Add a real contract test over the lowest
@@ -13,11 +13,8 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
-- Stage D1 (device-buffer ownership-transfer contract test, see the roadmap
-  item above) is in progress in a local `contracts/atlas-device` crate
-  depending on `hephaestus-core`/`hephaestus-wgpu` by local path — not yet
-  committed, workspace-topology decisions (new workspace member, cross-repo
-  `[patch]` overrides) not yet finalized for a mergeable state.
+- No Melinoe-local item remains in progress; the 0.9.0 executor capability is
+  ready for upstream publication and downstream Moirai lock refresh.
 
 ## Next
 
@@ -33,6 +30,16 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   newer rustdoc-JSON format so its lints execute rather than skip.
 
 ## Closed
+
+- <a id="parallel-executor-capability"></a>[major] Replaced the
+  `ParallelExecutorFn` domain alias with a transparent validating capability.
+  Evidence: compile-time layout assertion, 121/121 nextest, 30/30 doctests,
+  Clippy/rustdoc, three focused Miri tests, and major-change semver
+  classification. Decision: ADR 0001.
+
+- <a id="atlas-device-contract"></a>[minor] Added the Atlas device-buffer
+  ownership-transfer contract crate in commit `375108b`; the workspace now
+  carries the real Hephaestus-backed contract instead of an uncommitted plan.
 
 - <a id="halo-workspace-crate"></a>[minor] Added `crates/halo` as the
   Melinoe-backed protective collection crate. The first migrated vertical slice

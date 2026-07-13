@@ -6,6 +6,14 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+### Breaking
+
+- [major] Replaced the `ParallelExecutorFn` alias with the zero-cost
+  `ParallelExecutor` capability. Integrators construct the capability through
+  `unsafe { ParallelExecutor::new(executor) }`, discharging exact-once index,
+  blocking-completion, and context-lifetime obligations once; safe registration
+  accepts only the validated value. No compatibility alias remains.
+
 ### Added
 
 - [minor] `BrandedVecDeque` gained sharded parallel read/write operations —
