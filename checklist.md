@@ -1,8 +1,21 @@
 # Checklist — melinoe
 
-Target version: 0.8.0
+Target version: 0.9.0
 
-## Current micro-sprint (0.8.0)
+## Current micro-sprint (0.9.0)
+
+- [x] [major] Record ADR 0001: replace the raw executor alias with a transparent
+  validated capability; reject unsafe-at-every-registration and trait-object
+  alternatives.
+- [x] [major] Encode the implementer obligation in
+  `ParallelExecutor::new`, preserve safe registration, pin function-pointer
+  layout at compile time, and remove `ParallelExecutorFn` completely.
+- [x] [major] Migrate Melinoe contracts and Moirai's registration boundary.
+- [x] Evidence: workspace Clippy; 121/121 nextest; 30/30 doctests; rustdoc;
+  three focused registered-executor Miri tests; `cargo semver-checks` classifies
+  0.8.0 to 0.9.0 as a major change.
+
+## Prior micro-sprint (0.8.0)
 
 - [x] [minor] Migrate the next lowest-risk upstream Halo collection:
   `halo::BrandedVecDeque<'brand, T>`. Upstream `vec_deque` maps directly to

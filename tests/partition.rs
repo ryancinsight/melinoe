@@ -125,7 +125,7 @@ mod concurrent {
     use melinoe::sync::{
         clear_parallel_executor, partition_for_each, partition_for_each_available,
         partition_for_each_with, partition_map, partition_map_available, partition_map_with,
-        register_parallel_executor, PartitionPlan,
+        register_parallel_executor, ParallelExecutor, PartitionPlan,
     };
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Mutex, MutexGuard};
@@ -161,12 +161,17 @@ mod concurrent {
         EXECUTED_TASKS.store(num_tasks, Ordering::SeqCst);
         for index in 0..num_tasks {
             // SAFETY: this deterministic executor runs every task index exactly
-            // once before returning, satisfying `ParallelExecutorFn`.
+            // once before returning, satisfying `ParallelExecutor`.
             unsafe {
                 task_fn(index, data);
             }
         }
     }
+
+    // SAFETY: `deterministic_executor` invokes every index in ascending order
+    // exactly once and returns only after the last invocation completes.
+    const DETERMINISTIC_EXECUTOR: ParallelExecutor =
+        unsafe { ParallelExecutor::new(deterministic_executor) };
 
     /// Four threads concurrently fill disjoint partitions with global indices;
     /// the joined region equals the identity mapping.
@@ -221,7 +226,7 @@ mod concurrent {
         const N: usize = 32;
         let _guard = ExecutorTestGuard::acquire();
         EXECUTED_TASKS.store(0, Ordering::SeqCst);
-        register_parallel_executor(deterministic_executor);
+        register_parallel_executor(DETERMINISTIC_EXECUTOR);
 
         brand_scope(|token| {
             let mut cells: Vec<MelinoeCell<'_, usize>> =
@@ -248,7 +253,7 @@ mod concurrent {
         const N: usize = 8;
         let _guard = ExecutorTestGuard::acquire();
         EXECUTED_TASKS.store(0, Ordering::SeqCst);
-        register_parallel_executor(deterministic_executor);
+        register_parallel_executor(DETERMINISTIC_EXECUTOR);
         clear_parallel_executor();
 
         brand_scope(|token| {
@@ -493,19 +498,7 @@ mod concurrent {
             }
         }
 
-        unsafe fn test_executor(
-            num_tasks: usize,
-            task_fn: unsafe fn(usize, *mut ()),
-            data: *mut (),
-        ) {
-            for i in 0..num_tasks {
-                unsafe {
-                    task_fn(i, data);
-                }
-            }
-        }
-
-        register_parallel_executor(test_executor);
+        register_parallel_executor(DETERMINISTIC_EXECUTOR);
 
         let mut cells: Vec<MelinoeCell<'_, usize>> = (0..4).map(|_| MelinoeCell::new(0)).collect();
 
@@ -520,7 +513,8 @@ mod concurrent {
 
         clear_parallel_executor();
 
-        assert!(result.is_err());
+        let payload = result.expect_err("partition task 2 must propagate its panic");
+        assert_eq!(payload.downcast_ref::<&str>(), Some(&"Task 2 failed"));
         // Tasks 0, 1, 3 succeeded and produced DropItem. Task 2 panicked.
         // Therefore, exactly 3 DropItem instances should have been created and dropped by the panic guard.
         assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 3);
@@ -540,19 +534,7 @@ mod concurrent {
             }
         }
 
-        unsafe fn test_executor(
-            num_tasks: usize,
-            task_fn: unsafe fn(usize, *mut ()),
-            data: *mut (),
-        ) {
-            for i in 0..num_tasks {
-                unsafe {
-                    task_fn(i, data);
-                }
-            }
-        }
-
-        register_parallel_executor(test_executor);
+        register_parallel_executor(DETERMINISTIC_EXECUTOR);
 
         let values: Vec<usize> = vec![0; 4];
 
@@ -571,7 +553,8 @@ mod concurrent {
 
         clear_parallel_executor();
 
-        assert!(result.is_err());
+        let payload = result.expect_err("read partition task 2 must propagate its panic");
+        assert_eq!(payload.downcast_ref::<&str>(), Some(&"Task 2 failed"));
         assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 3);
     }
 

@@ -77,7 +77,7 @@ struct TaskContext<'a, R, Run> {
 ///
 /// `data` must be a live `*mut TaskContext<'_, R, Run>` valid for the whole
 /// executor call, and the executor must invoke each `index` in
-/// `0..num_chunks` at most once (the [`ParallelExecutorFn`](super::ParallelExecutorFn)
+/// `0..num_chunks` at most once (the [`ParallelExecutor`](super::ParallelExecutor)
 /// contract), so no two invocations touch the same `out_ptr`/`successful_ptr`
 /// slot.
 unsafe fn task_wrapper<R, Run>(index: usize, data: *mut ())
@@ -173,7 +173,7 @@ where
         // guarantees each `index` runs at most once, upholding `task_wrapper`'s
         // own safety requirement.
         unsafe {
-            executor(
+            executor.execute(
                 num_chunks,
                 task_wrapper::<R, Run>,
                 &mut ctx as *mut TaskContext<'_, R, Run> as *mut (),

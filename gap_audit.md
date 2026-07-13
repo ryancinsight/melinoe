@@ -25,6 +25,21 @@ owned storage with exactly one clone per element. Evidence tier:
 value-semantic integration tests plus the existing ZST/type-level policy
 surface.
 
+### Parallel executor validation boundary — resolved (0.9.0)
+
+The `ParallelExecutorFn` alias allowed safe registration of any raw unsafe
+function pointer even though sound raw-slot access depends on exact-once index
+coverage, blocking completion, and context lifetime. ADR 0001 selects a
+transparent `ParallelExecutor` newtype whose unsafe constructor is the single
+proof boundary. Registration remains safe because it accepts only a validated
+capability. The old alias is deleted rather than retained as a compatibility
+path. Evidence target: compile-time layout assertion, value-semantic partition
+contracts, Miri, and the real Moirai scheduler consumer.
+The compile-time pointer-layout assertion, 121 value-semantic workspace tests,
+30 doctests, three focused Miri executor-path tests, Clippy, rustdoc, and semver
+classification pass. The Moirai consumer now constructs the validated
+capability at its scheduler bridge.
+
 The current cleanup audited the region partitioning tree. `src/region/mod.rs`
 still held module documentation, the `WriterShard` capability, and the
 `ShardChunks` exact-size iterator in one file. It now acts as the documentation
