@@ -13,7 +13,7 @@ categories = ["no-std", "concurrency", "rust-patterns", "memory-management"]
 readme = "README.md"
 
 [workspace]
-members = [".", "crates/halo"]
+members = ["."]
 default-members = ["."]
 resolver = "2"
 
@@ -76,3 +76,21 @@ required-features = ["std"]
 name = "conditional_atomics"
 harness = false
 required-features = ["std"]
+
+[[bench]]
+name = "branded_vec"
+harness = false
+required-features = ["alloc"]
+
+[[test]]
+name = "branded_vec"
+required-features = ["alloc"]
+
+[[test]]
+name = "branded_deque"
+required-features = ["alloc"]
+
+[[bench]]
+name = "branded_deque"
+harness = false
+required-features = ["alloc"]

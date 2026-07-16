@@ -1,4 +1,4 @@
-//! Value-semantic contract tests for `halo::BrandedVec`.
+//! Value-semantic contract tests for `melinoe::collections::BrandedVec`.
 //!
 //! The harness checks Melinoe permit-gated access, zero-copy slice layout, and
 //! conditional `Cow` borrow/retain behavior.
@@ -12,7 +12,7 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::cell::Cell;
 
-use halo::BrandedVec;
+use melinoe::collections::BrandedVec;
 #[cfg(feature = "std")]
 use melinoe::sync::PartitionPlan;
 use melinoe::{brand_scope, Borrowed, Retained};

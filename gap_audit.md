@@ -54,25 +54,24 @@ cross-thread independence tests.
 
 ## Findings
 
-### Halo workspace integration — staged collection migration
+### Halo workspace integration — consolidated into melinoe crate
 
-The upstream `ryancinsight/halo` repository compiles, but the inspected tree
-contains a broad independent ghost-token implementation, large collection/graph
-modules, missing-doc warnings, and scratch/log/generated artifacts. Bulk import
-would introduce a second capability system and break Melinoe's documentation and
-verification discipline. The integrated `crates/halo` slices are therefore the
-lowest-risk standard containers first: `halo::BrandedVec<'brand, T>` backed by
-`Vec<MelinoeCell<'brand, T>>`, then `halo::BrandedVecDeque<'brand, T>` backed by
-`VecDeque<MelinoeCell<'brand, T>>`. Both expose owned structural operations plus
-default-`std` partitioned read and mutation adapters. Read adapters use
-`PartitionPlan::chunk_len_for` over Melinoe read-permit `&[T]` views; mutation
-adapters reuse Melinoe's `WriterShard` driver rather than adding another
-concurrent scheduler. Evidence tier: type-level Melinoe permit/shard encoding
-plus value-semantic tests for element access, structural mutation, zero-copy
-slice pointer identity, conditional `Cow` borrow/retain behavior, concurrent
-shared-shard reads, and concurrent shard writes. `BrandedVecDeque` additionally
-tests wrapped ring-buffer split slices and pointer-identical contiguous
-`Cow::Borrowed` output. Residual tracked in `backlog.md#halo-upstream-migration`.
+The `crates/halo` sub-crate was consolidated into the root `melinoe` crate.
+`BrandedVec`, `BrandedVecDeque`, `BrandedDrain`, and `BrandedVecDequeDrain`
+now live in `melinoe::collections` (re-exported at the crate root, gated on
+`alloc`). The halo workspace entry, Cargo.toml, and standalone crate are
+removed. All tests and benchmarks are migrated into the trunk crate's
+`tests/` and `benches/` directories. This eliminates the cross-crate
+dependency boundary and reduces the workspace to a single member.
+
+Evidence tier: `cargo nextest run` (121/121 pass), `cargo clippy --all-targets
+--all-features -- -D warnings` clean, `cargo doc --no-deps` clean, feature
+matrix (`--no-default-features`, `--features alloc`, default) all build clean.
+Previously: the upstream `ryancinsight/halo` repository compiles, but the
+inspected tree contained a broad independent ghost-token implementation, large
+collection/graph modules, missing-doc warnings, and scratch/log/generated
+artifacts. Bulk import was rejected; the staged migration through `crates/halo`
+was the intermediate step before full consolidation.
 
 ### Default provider feature policy — closed
 

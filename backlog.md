@@ -18,12 +18,11 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Next
 
-- <a id="halo-upstream-migration"></a>[minor] Continue the staged migration of
-  `ryancinsight/halo` into `crates/halo`: replace Halo-local `GhostToken` /
-  `GhostCell` surfaces with Melinoe permits/cells collection by collection after
-  the `Vec` and `VecDeque` slices, discard scratch/log/generated artifacts, and
-  require each migrated collection to land with value-semantic tests, docs, and
-  a benchmark harness.
+- <a id="halo-upstream-migration"></a>[patch] Consolidated `crates/halo` into
+  the root `melinoe` crate. The `halo` sub-crate and its workspace entry are
+  removed; `BrandedVec`, `BrandedVecDeque`, `BrandedDrain`, and
+  `BrandedVecDequeDrain` live in `melinoe::collections` (re-exported at the
+  crate root). Single-crate workspace with no cross-crate dependency boundary.
 - <a id="semver-registry"></a>[patch] After registry publication, switch
   `cargo-semver-checks` from the `--baseline-rev` git workflow (now established)
   to the default crates.io baseline, and re-run once semver-checks supports the

@@ -1,4 +1,4 @@
-//! Criterion benchmarks for Melinoe-backed Halo vectors.
+//! Criterion benchmarks for Melinoe-backed branded vectors.
 //!
 //! This harness measures the production `BrandedVec::as_slice` read path rather
 //! than a benchmark-specific adapter.
@@ -7,13 +7,13 @@
 #![allow(missing_docs)]
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use halo::BrandedVec;
 use melinoe::brand_scope;
+use melinoe::collections::BrandedVec;
 #[cfg(feature = "std")]
 use melinoe::sync::PartitionPlan;
 
 fn branded_slice_sum(c: &mut Criterion) {
-    c.bench_function("halo_branded_vec/slice_sum_4096", |b| {
+    c.bench_function("branded_vec/slice_sum_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
                 let values = BrandedVec::from_iter(0_u64..4096);
@@ -30,7 +30,7 @@ fn branded_slice_sum(c: &mut Criterion) {
 
 #[cfg(feature = "std")]
 fn branded_partition_fill(c: &mut Criterion) {
-    c.bench_function("halo_branded_vec/partition_fill_4096", |b| {
+    c.bench_function("branded_vec/partition_fill_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
                 let mut values = BrandedVec::from_iter(0_u64..4096);
@@ -50,7 +50,7 @@ fn branded_partition_fill(c: &mut Criterion) {
 
 #[cfg(feature = "std")]
 fn branded_partition_sum(c: &mut Criterion) {
-    c.bench_function("halo_branded_vec/partition_sum_4096", |b| {
+    c.bench_function("branded_vec/partition_sum_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
                 let values = BrandedVec::from_iter(0_u64..4096);

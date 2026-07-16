@@ -6,6 +6,17 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- [patch] Consolidated `crates/halo` into the root `melinoe` crate. The public
+  types `BrandedVec`, `BrandedVecDeque`, `BrandedDrain`, and
+  `BrandedVecDequeDrain` now live in `melinoe::collections` (gated on
+  `alloc`). Re-exported at the crate root as `melinoe::BrandedVec` etc. for
+  ergonomic access. The `halo` sub-crate and its workspace entry are removed;
+  all tests, benches, and impl modules are migrated into the trunk crate.
+  Single-crate workspace reduces build complexity and eliminates the
+  cross-crate dependency boundary.
+
 ### Breaking
 
 - [major] Replaced the `ParallelExecutorFn` alias with the zero-cost

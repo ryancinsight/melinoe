@@ -1,4 +1,4 @@
-//! Criterion benchmarks for Melinoe-backed Halo double-ended queues.
+//! Criterion benchmarks for Melinoe-backed branded double-ended queues.
 //!
 //! This harness measures the production `BrandedVecDeque` read, wrapped-read,
 //! and partition paths rather than benchmark-only adapters.
@@ -11,8 +11,8 @@ extern crate alloc;
 use alloc::collections::VecDeque;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use halo::BrandedVecDeque;
 use melinoe::brand_scope;
+use melinoe::collections::BrandedVecDeque;
 #[cfg(feature = "std")]
 use melinoe::sync::PartitionPlan;
 
@@ -27,7 +27,7 @@ fn wrapped_values() -> VecDeque<u64> {
 }
 
 fn branded_contiguous_slice_sum(c: &mut Criterion) {
-    c.bench_function("halo_branded_deque/contiguous_slice_sum_4096", |b| {
+    c.bench_function("branded_deque/contiguous_slice_sum_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
                 let values = BrandedVecDeque::from_iter(0_u64..4096);
@@ -44,7 +44,7 @@ fn branded_contiguous_slice_sum(c: &mut Criterion) {
 }
 
 fn branded_wrapped_slice_sum(c: &mut Criterion) {
-    c.bench_function("halo_branded_deque/wrapped_slice_sum_4096", |b| {
+    c.bench_function("branded_deque/wrapped_slice_sum_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
                 let values = BrandedVecDeque::from(wrapped_values());
@@ -62,7 +62,7 @@ fn branded_wrapped_slice_sum(c: &mut Criterion) {
 
 #[cfg(feature = "std")]
 fn branded_partition_fill(c: &mut Criterion) {
-    c.bench_function("halo_branded_deque/partition_fill_4096", |b| {
+    c.bench_function("branded_deque/partition_fill_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
                 let mut values = BrandedVecDeque::from(wrapped_values());
@@ -83,7 +83,7 @@ fn branded_partition_fill(c: &mut Criterion) {
 
 #[cfg(feature = "std")]
 fn branded_partition_sum(c: &mut Criterion) {
-    c.bench_function("halo_branded_deque/partition_sum_4096", |b| {
+    c.bench_function("branded_deque/partition_sum_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
                 let values = BrandedVecDeque::from(wrapped_values());

@@ -12,16 +12,16 @@ The crate ships **no allocator, arena, or `GlobalAlloc`** — only the
 compile-time machinery. It is built to slot into the **Mnemosyne** memory
 ecosystem alongside its ZST `AllocPolicy`, heap branding, and `Branded*` types.
 
-## Workspace crates
+## Collections
 
-This repository now also contains `crates/halo`, the Melinoe-backed protective
-collection layer. Halo owns ergonomic data-structure adapters and delegates
+This repository now ships `BrandedVec<'brand, T>` and
+`BrandedVecDeque<'brand, T>` as built-in collection adapters in
+`melinoe::collections` (re-exported at the crate root). They own
+`Vec<MelinoeCell<'brand, T>>` / `VecDeque<MelinoeCell<'brand, T>>` and delegate
 branding, token permits, zero-copy slice views, and conditional `Cow` boundaries
-to `melinoe` rather than carrying an independent ghost-token implementation.
-The migrated collection surfaces are `halo::BrandedVec<'brand, T>` and
-`halo::BrandedVecDeque<'brand, T>`. Their default `std` feature also routes
-partitioned concurrent reads and mutation through Melinoe's `PartitionPlan` /
-`WriterShard` driver.
+to the Melinoe permit system rather than carrying an independent ghost-token
+implementation. Their default `std` feature also routes partitioned concurrent
+reads and mutation through Melinoe's `PartitionPlan` / `WriterShard` driver.
 
 > *In Greek myth, Melinoë leads a restless train of phantoms through the night.
 > Here she leads a train of phantom **types** — each a wisp of pure evidence,

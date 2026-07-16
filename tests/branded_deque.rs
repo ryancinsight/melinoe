@@ -1,4 +1,4 @@
-//! Value-semantic contract tests for `halo::BrandedVecDeque`.
+//! Value-semantic contract tests for `melinoe::collections::BrandedVecDeque`.
 //!
 //! The harness checks Melinoe permit-gated access, zero-copy split slice layout,
 //! and double-ended queue properties.
@@ -7,9 +7,10 @@
 extern crate alloc;
 
 use alloc::collections::VecDeque;
-use halo::BrandedVecDeque;
 use melinoe::brand_scope;
+use melinoe::collections::BrandedVecDeque;
 
+#[cfg(feature = "std")]
 fn wrapped_three_three_queue() -> VecDeque<usize> {
     let mut values = VecDeque::with_capacity(8);
     values.extend(0_usize..8);

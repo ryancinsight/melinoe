@@ -578,6 +578,7 @@ mod concurrent {
 // closed form 0+1+..+(n-1) — and (b) leave every cell holding its own index,
 // i.e. the partition is disjoint and complete for any (n, parts).
 
+#[cfg(feature = "std")]
 proptest::proptest! {
     #[test]
     fn prop_partition_map_covers_every_index_disjointly(

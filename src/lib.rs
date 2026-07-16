@@ -214,6 +214,9 @@ pub mod sync;
 pub mod thread_cached;
 pub mod token;
 
+#[cfg(feature = "alloc")]
+pub mod collections;
+
 #[cfg(all(doctest, feature = "std"))]
 mod readme_doctests {
     //! Compiles the `README.md` code blocks as doctests so the documented
@@ -243,3 +246,7 @@ pub use token::{
 #[doc(inline)]
 #[cfg(feature = "std")]
 pub use sync::{clear_parallel_executor, register_parallel_executor, ParallelExecutor};
+
+#[doc(inline)]
+#[cfg(feature = "alloc")]
+pub use collections::{BrandedDrain, BrandedVec, BrandedVecDeque, BrandedVecDequeDrain};
