@@ -18,11 +18,6 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Next
 
-- <a id="halo-upstream-migration"></a>[patch] Consolidated `crates/halo` into
-  the root `melinoe` crate. The `halo` sub-crate and its workspace entry are
-  removed; `BrandedVec`, `BrandedVecDeque`, `BrandedDrain`, and
-  `BrandedVecDequeDrain` live in `melinoe::collections` (re-exported at the
-  crate root). Single-crate workspace with no cross-crate dependency boundary.
 - <a id="semver-registry"></a>[patch] After registry publication, switch
   `cargo-semver-checks` from the `--baseline-rev` git workflow (now established)
   to the default crates.io baseline, and re-run once semver-checks supports the
@@ -75,6 +70,11 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   Evidence: contiguous and wrapped-deque correctness tests, a same-logical-
   plan consistency check across both mutation and read paths, workspace
   nextest/clippy/fmt gates.
+- <a id="halo-upstream-migration"></a>[major] Consolidated `crates/halo` into
+  the root `melinoe` crate (`2e9bf87`). `halo` workspace member removed;
+  `BrandedVec`, `BrandedVecDeque`, `BrandedDrain`, `BrandedVecDequeDrain` live
+  in `melinoe::collections` (re-exported at crate root under `alloc` gate).
+  Single-crate workspace. 121/121 nextest, clippy/rustdoc clean.
 - <a id="region-module-hierarchy"></a>[patch] Region module hierarchy split
   delivered in 0.6.0. `src/region/mod.rs` is now the documentation/re-export
   root, `src/region/shard.rs` owns `WriterShard`, and
