@@ -198,6 +198,7 @@
 //!
 //! The crate is `#![no_std]` by default and uses no global allocator of its own.
 #![no_std]
+#![deny(missing_docs)]
 #![cfg_attr(doc_cfg_active, feature(doc_cfg))]
 
 #[cfg(feature = "alloc")]

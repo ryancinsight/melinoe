@@ -8,6 +8,13 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Changed
 
+- [patch] Added crate-root `#![deny(missing_docs)]` attribute to align with the
+  atlas stack convention (aequitas, harmonia, horae, themis). The lint was
+  already enforced via `[lints.rust]` in `Cargo.toml`; this makes it visible at
+  the crate root where the rest of the stack places it.
+
+### Changed
+
 - [patch] Consolidated `crates/halo` into the root `melinoe` crate. The public
   types `BrandedVec`, `BrandedVecDeque`, `BrandedDrain`, and
   `BrandedVecDequeDrain` now live in `melinoe::collections` (gated on
