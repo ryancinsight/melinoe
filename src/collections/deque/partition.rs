@@ -34,7 +34,8 @@ impl DequeShardPlan {
     fn from_lengths(front_len: usize, back_len: usize, plan: crate::sync::PartitionPlan) -> Self {
         let total_len = front_len + back_len;
         let chunk_len = plan.chunk_len_for(total_len).max(1);
-        let mut shards = Vec::new();
+        let num_chunks = (total_len + chunk_len - 1) / chunk_len;
+        let mut shards = Vec::with_capacity(num_chunks * 2);
         let mut start = 0;
 
         while start < total_len {
