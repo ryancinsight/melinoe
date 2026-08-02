@@ -13,6 +13,8 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
+- [x] [patch] Publish future releases through a pinned GitHub Actions workflow
+  using crates.io OIDC Trusted Publishing and no stored registry credential.
 - No Melinoe-local item remains in progress; the 0.9.0 executor capability is
   ready for upstream publication and downstream Moirai lock refresh.
 

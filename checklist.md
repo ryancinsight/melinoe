@@ -2,6 +2,11 @@
 
 Target version: 0.9.0
 
+## Trusted publishing
+
+- [x] Add and validate the release workflow, then register `melinoe` against
+  `ryancinsight/melinoe/.github/workflows/rust-release.yml` in crates.io.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent

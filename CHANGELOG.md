@@ -8,6 +8,9 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Changed
 
+- [patch] Added a GitHub Release workflow that validates crate identity and
+  package contents before publishing through crates.io Trusted Publishing.
+
 - [patch] Added crate-root `#![deny(missing_docs)]` attribute to align with the
   atlas stack convention (aequitas, harmonia, horae, themis). The lint was
   already enforced via `[lints.rust]` in `Cargo.toml`; this makes it visible at
