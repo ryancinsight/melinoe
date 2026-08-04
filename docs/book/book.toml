@@ -1,0 +1,19 @@
+# mdBook configuration for the melinoe capability-token book.
+[book]
+title = "melinoe: Branded Capability Tokens for Atlas"
+authors = ["Ryan Clanton"]
+description = "Zero-cost, brand-parameterised phantom capabilities for compile-time data-access and thread-synchronization proofs in the Atlas stack."
+src = "."
+language = "en"
+
+[build]
+build-dir = "../../target/book/melinoe"
+create-missing = false
+
+[output.html]
+no-section-label = false
+mathjax-support = false
+site-url = "/melinoe/"
+git-repository-url = "https://github.com/ryancinsight/melinoe"
+edit-url-template = "https://github.com/ryancinsight/melinoe/edit/main/docs/book/{path}"
+default-theme = "rust"
