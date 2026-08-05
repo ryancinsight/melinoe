@@ -31,7 +31,10 @@ pub trait CellSliceExt<'brand, T> {
     /// unique owning token). A shared `&self` slice borrow suffices because the
     /// permit—not the slice reference—supplies the exclusivity proof (the same
     /// interior-mutability shape as `GhostCell::borrow_mut`).
-    #[allow(clippy::mut_from_ref)]
+    #[expect(
+        clippy::mut_from_ref,
+        reason = "exclusivity is supplied by the WritePermit (a &mut borrow of the brand's unique token), not by the &self slice reference — the GhostCell interior-mutability pattern"
+    )]
     fn borrow_slice_mut<'a, P>(&'a self, permit: P) -> &'a mut [T]
     where
         P: WritePermit<'brand> + 'a;
@@ -53,7 +56,6 @@ impl<'brand, T> CellSliceExt<'brand, T> for [MelinoeCell<'brand, T>] {
     // The `&self -> &mut [T]` shape is the intended interior-mutability pattern:
     // exclusivity is supplied by the `WritePermit` (a `&mut` borrow of the brand's
     // unique token), not by the slice reference — identical to `GhostCell::borrow_mut`.
-    #[allow(clippy::mut_from_ref)]
     #[inline]
     fn borrow_slice_mut<'a, P>(&'a self, _permit: P) -> &'a mut [T]
     where

@@ -8,6 +8,19 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Changed
 
+- [patch] `BrandedVecDeque::as_slices`/`as_mut_slices` now route the ring-buffer
+  segment cast through `MelinoeCell::slice_as_unsafe_cell`, the crate's SSOT for
+  interior-mutability-provenance-preserving pointer conversion, instead of a
+  bare `*const MelinoeCell<T> as *const T` cast. Behavior is unchanged; the
+  shared and exclusive slice views now carry the same `UnsafeCell` provenance as
+  `CellSliceExt::borrow_slice*` and the region shards.
+
+- [patch] Site-local `#[allow(clippy::mut_from_ref)]` suppressions on the
+  branded `&self -> &mut [T]` interior-mutability boundaries converted to
+  `#[expect(clippy::mut_from_ref, reason = "...")]` so an accidental removal of
+  the triggering shape is caught by `unfulfilled_lint_expectations` rather than
+  silently retiring the suppression.
+
 - [patch] Added a GitHub Release workflow that validates crate identity and
   package contents before publishing through crates.io Trusted Publishing.
 
