@@ -38,13 +38,19 @@ fn main() {
 
         // fetch_add under shared permit: `lock xaddq` on x86-64.
         let prev = counter.fetch_add_with(5, snap, Relaxed);
-        println!("fetch_add(5): prev={prev}, now={}", counter.load_with(snap, Relaxed));
+        println!(
+            "fetch_add(5): prev={prev}, now={}",
+            counter.load_with(snap, Relaxed)
+        );
         assert_eq!(prev, 100);
         assert_eq!(counter.load_with(snap, Relaxed), 105);
 
         // AcqRel ordering for a publish-subscribe hand-off.
         let prev2 = counter.fetch_add_with(10, snap, AcqRel);
-        println!("fetch_add(10) AcqRel: prev={prev2}, now={}", counter.load_with(snap, Relaxed));
+        println!(
+            "fetch_add(10) AcqRel: prev={prev2}, now={}",
+            counter.load_with(snap, Relaxed)
+        );
         assert_eq!(counter.load_with(snap, Relaxed), 115);
     });
 

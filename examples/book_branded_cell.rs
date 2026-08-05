@@ -14,7 +14,7 @@ fn main() {
     // ── Exclusive write followed by shared read ──
     brand_scope(|mut token| {
         let counter = MelinoeCell::new(0_u64);
-        let step    = MelinoeCell::new(7_u64);
+        let step = MelinoeCell::new(7_u64);
 
         // Mutate through the exclusive (write) permit.
         *counter.borrow_mut(&mut token) += *step.borrow_mut(&mut token);
@@ -22,7 +22,11 @@ fn main() {
 
         // Fan-out shared (read) permit: `token.share()` returns a `Copy` snapshot.
         let snap = token.share();
-        println!("counter = {}, step = {}", *counter.borrow(snap), *step.borrow(snap));
+        println!(
+            "counter = {}, step = {}",
+            *counter.borrow(snap),
+            *step.borrow(snap)
+        );
         assert_eq!(*counter.borrow(snap), 14);
         assert_eq!(*step.borrow(snap), 7);
     });
@@ -34,7 +38,7 @@ fn main() {
         {
             let (mut left, mut right) =
                 MelinoeMut::map_split(pair.borrow_mut(&mut token), |t| (&mut t.0, &mut t.1));
-            *left  = 42;
+            *left = 42;
             *right = 99;
         }
 
