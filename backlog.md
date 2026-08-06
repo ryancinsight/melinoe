@@ -13,6 +13,20 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
+- [x] [patch] Harden registered partition panic recovery against mutex poisoning.
+  `sync::scoped::partition::driver_core` now recovers the first captured panic
+  payload with `PoisonError::into_inner` both when task wrappers report a panic
+  and when the executor tears down the manually managed result buffer. This
+  prevents a poisoned payload mutex from masking the original panic; the
+  existing panic-safety drop-count tests continue to cover initialized-result
+  cleanup. A focused regression poisons the payload mutex, reports a second
+  panic, and verifies the first payload remains recoverable. Evidence
+  (2026-08-06): `cargo check --all-features`, strict
+  `cargo clippy --all-targets --all-features -- -D warnings`, Nextest **122/122**,
+  doctests **29/29**, `cargo check --no-default-features`, rustfmt, and diff
+  checks all pass. Implementation scope is one provider-local source file;
+  no consumer or peer-owned files changed.
+
 - [x] [patch] Publish future releases through a pinned GitHub Actions workflow
   using crates.io OIDC Trusted Publishing and no stored registry credential.
 - No Melinoe-local item remains in progress; the 0.9.0 executor capability is

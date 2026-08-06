@@ -16,6 +16,22 @@ use std::vec::Vec;
 
 use super::executor::registered_parallel_executor;
 
+type PanicPayload = Option<std::boxed::Box<dyn std::any::Any + Send>>;
+
+type PanicPayloadMutex = std::sync::Mutex<PanicPayload>;
+
+fn lock_panic_payload(mutex: &PanicPayloadMutex) -> std::sync::MutexGuard<'_, PanicPayload> {
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn take_panic_payload(mutex: PanicPayloadMutex) -> PanicPayload {
+    mutex
+        .into_inner()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 /// Guards the raw `MaybeUninit` out-buffer while the registered executor runs.
 ///
 /// If a task panics and unwinds *through* the executor call (rather than being
@@ -68,7 +84,7 @@ struct TaskContext<'a, R, Run> {
     run: &'a Run,
     out_ptr: *mut core::mem::MaybeUninit<R>,
     successful_ptr: *mut bool,
-    panic_payload: &'a std::sync::Mutex<Option<std::boxed::Box<dyn std::any::Any + Send>>>,
+    panic_payload: &'a PanicPayloadMutex,
 }
 
 /// The raw per-task entry point handed to a registered executor.
@@ -107,10 +123,9 @@ where
             }
         }
         Err(payload) => {
-            if let Ok(mut g) = ctx.panic_payload.lock() {
-                if g.is_none() {
-                    *g = Some(payload);
-                }
+            let mut g = lock_panic_payload(ctx.panic_payload);
+            if g.is_none() {
+                *g = Some(payload);
             }
         }
     }
@@ -150,7 +165,7 @@ where
         core::mem::forget(out);
 
         let mut successful = std::vec![false; num_chunks];
-        let panic_payload = std::sync::Mutex::new(None);
+        let panic_payload = PanicPayloadMutex::new(None);
 
         let mut guard = ExecutorDropGuard {
             out_ptr,
@@ -184,7 +199,7 @@ where
         // panic mutex. Take manual ownership of the buffer away from the guard.
         guard.active = false;
 
-        if let Some(payload) = panic_payload.into_inner().unwrap() {
+        if let Some(payload) = take_panic_payload(panic_payload) {
             for (index, &success) in successful.iter().enumerate() {
                 if success {
                     // SAFETY: `success` is set only after slot `index` was
@@ -234,4 +249,50 @@ where
         results.push(last);
         results
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::boxed::Box;
+
+    use super::{lock_panic_payload, take_panic_payload, PanicPayloadMutex, TaskContext};
+
+    #[test]
+    fn poisoned_payload_mutex_preserves_the_first_panic() {
+        let mutex = PanicPayloadMutex::new(None);
+        let poison = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut payload = mutex.lock().unwrap();
+            *payload = Some(Box::new("first panic"));
+            panic!("poison payload mutex");
+        }));
+        assert!(poison.is_err());
+
+        let run: fn(usize) = |_| panic!("second panic");
+        let mut successful = false;
+        let mut context = TaskContext::<(), fn(usize)> {
+            run: &run,
+            out_ptr: core::ptr::null_mut(),
+            successful_ptr: &mut successful,
+            panic_payload: &mutex,
+        };
+
+        // The task wrapper's recovery path must not mask the first payload or
+        // panic again merely because another task reports a panic afterward.
+        unsafe {
+            super::task_wrapper::<(), fn(usize)>(0, &mut context as *mut _ as *mut ());
+        }
+
+        let payload = take_panic_payload(mutex).expect("first panic payload survives poisoning");
+        assert_eq!(payload.downcast_ref::<&'static str>(), Some(&"first panic"));
+
+        // Keep the lock helper exercised directly as well: poisoned state is a
+        // recoverable condition for this payload-only mutex.
+        let mutex = PanicPayloadMutex::new(None);
+        let poison = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = mutex.lock().unwrap();
+            panic!("poison empty payload mutex");
+        }));
+        assert!(poison.is_err());
+        assert!(lock_panic_payload(&mutex).is_none());
+    }
 }

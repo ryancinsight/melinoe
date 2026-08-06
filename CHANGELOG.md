@@ -8,6 +8,14 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Changed
 
+- [patch] Harden registered-partition panic recovery against mutex poisoning:
+  `sync::scoped::partition::driver_core` recovers the first captured panic
+  payload with `PoisonError::into_inner` both when task wrappers report a
+  panic and when the executor tears down the manually managed result buffer.
+  Previously the `if let Ok` path silently dropped the first panic payload if
+  the payload mutex was poisoned; the first panic cause is now always
+  preserved. A focused regression poisons the payload mutex, reports a second
+  panic, and verifies the first payload remains recoverable.
 - [patch] `BrandedVecDeque::as_slices`/`as_mut_slices` now route the ring-buffer
   segment cast through `MelinoeCell::slice_as_unsafe_cell`, the crate's SSOT for
   interior-mutability-provenance-preserving pointer conversion, instead of a
