@@ -102,6 +102,11 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
     #[inline]
     #[must_use]
     pub fn into_vec_deque(self) -> VecDeque<T> {
+        // SAFETY: the reverse conversion of `From<VecDeque<T>>` above is
+        // layout-preserving through the transparent `MelinoeCell` chain.
+        // `ManuallyDrop` prevents the branded deque from being dropped, and
+        // `ptr::read` transfers its allocation and metadata to the returned
+        // owner exactly once.
         unsafe {
             let cells = core::mem::ManuallyDrop::new(self.cells);
             core::ptr::read(
