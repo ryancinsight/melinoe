@@ -34,6 +34,18 @@ Target version: 0.9.0
 - [x] Evidence: all-feature Nextest 126/126, strict all-target/all-feature
   Clippy, offline check, and rustfmt.
 
+## Fresh-brand factory cleanup (Unreleased)
+
+- [x] [patch] Centralize fresh brand construction behind the private
+  higher-ranked `TokenFamily`/`with_fresh_token` factory. Preserve separate
+  exclusive, cross-thread region, and thread-local token families, including
+  the thread-local non-`Send` marker.
+- [x] Replace repeated scope-local unsafe minting in public branding, scoped
+  worker, and reentrant entry points without changing their public contracts.
+- [x] Evidence: all-feature Nextest 126/126, alloc-only Nextest 80/80,
+  all-target/all-feature and alloc-only Clippy, offline check, rustfmt,
+  31 doctests, and rustdoc.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent

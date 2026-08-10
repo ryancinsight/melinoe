@@ -33,6 +33,14 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   Evidence: ordering-role unit coverage, all-feature Nextest 126/126, strict
   Clippy, and offline check.
 
+- [x] [patch] Consolidate fresh higher-ranked brand minting behind the private
+  GAT-based `TokenFamily` factory. Exclusive, cross-thread region, thread-local,
+  scoped-worker, and reentrant entry points now share one brand proof boundary
+  while retaining their distinct token auto-trait postures. Public signatures
+  and consumer behavior remain unchanged. Evidence: all-feature Nextest
+  126/126, alloc-only Nextest 80/80, strict Clippy for both feature surfaces,
+  offline check, 31 doctests, rustdoc, and diff checks.
+
 - [x] [patch] Harden registered partition panic recovery against mutex poisoning.
   `sync::scoped::partition::driver_core` now recovers the first captured panic
   payload with `PoisonError::into_inner` both when task wrappers report a panic
