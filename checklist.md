@@ -53,6 +53,18 @@ Target version: 0.9.0
 - [x] Evidence: repository search confirms no remaining `src/atomic.rs` link;
   `git diff --check` passes.
 
+## Branded vector module cleanup (Unreleased)
+
+- [x] Split the oversized `BrandedVec` implementation into dedicated
+  generation, operation, view, partition, and iterator leaves while retaining
+  the existing `collections::BrandedVec` and `collections::with_generated`
+  exports.
+- [x] Add explicit safety rationale to the moved transparent-layout ownership
+  conversions.
+- [x] Evidence: all-feature Nextest 126/126, alloc-only Nextest 80/80,
+  all-target/all-feature and alloc-only Clippy, 31 doctests, rustdoc, offline
+  check, rustfmt, and diff checks. The largest leaf is 157 lines.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent
