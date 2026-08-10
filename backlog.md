@@ -59,6 +59,13 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   127/127, alloc-only Nextest 81/81, strict Clippy for both feature surfaces,
   31 doctests, rustdoc, offline check, rustfmt, and diff checks.
 
+- [ ] [patch] (in progress, owner=codex) Consolidate wrapped
+  `BrandedVecDeque` `Cow` construction through one generic segment helper and
+  document the transparent-storage safety contracts for deque conversions.
+  Preserve the existing borrow/retain policy semantics and public methods;
+  prove contiguous and wrapped value behavior through the existing deque Cow
+  suite plus focused feature gates.
+
 - [x] [patch] Harden registered partition panic recovery against mutex poisoning.
   `sync::scoped::partition::driver_core` now recovers the first captured panic
   payload with `PoisonError::into_inner` both when task wrappers report a panic

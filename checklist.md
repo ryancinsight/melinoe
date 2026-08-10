@@ -76,6 +76,16 @@ Target version: 0.9.0
   the peer-owned manifest's simultaneous path and registry `melinoe@0.9.0`
   specifications.
 
+## Wrapped deque Cow consolidation (Unreleased)
+
+- [ ] Claim the provider-local slice and preserve the existing public Cow APIs.
+- [ ] Route contiguous and wrapped segment assembly through one generic helper
+  parameterized by the existing `CowPolicy` ZST seam.
+- [ ] Add the missing safety rationale for `VecDeque<T>` to
+  `VecDeque<MelinoeCell<'brand, T>>` ownership conversions.
+- [ ] Verify the existing contiguous/wrapped Cow value and pointer contracts,
+  feature builds, strict Clippy, doctests, rustdoc, formatting, and diff checks.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent
