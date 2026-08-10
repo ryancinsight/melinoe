@@ -6,6 +6,19 @@ use std::borrow::Cow;
 
 use melinoe::{brand_scope, Borrowed, CellCowExt, MelinoeCell, RetainDecision, Retained};
 
+struct NonClone;
+
+fn assert_cell_cow_impl<'brand>()
+where
+    [MelinoeCell<'brand, NonClone>]: CellCowExt<'brand, NonClone>,
+{
+}
+
+#[test]
+fn cell_cow_trait_boundary_does_not_require_clone() {
+    assert_cell_cow_impl();
+}
+
 #[test]
 fn borrowed_policy_returns_zero_copy_borrow() {
     brand_scope(|token| {
