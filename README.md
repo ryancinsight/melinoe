@@ -269,7 +269,7 @@ single-threaded baseline. The partition driver reserves only the shard handles i
 can actually spawn and uses an overflow-safe ceiling division, so adversarially
 large `parts` values do not amplify allocation beyond the non-empty shard count.
 
-For **conditional atomics** ([`BrandedAtomic`](src/atomic.rs)), the exclusive
+For **conditional atomics** ([`BrandedAtomic`](src/atomic/branded.rs)), the exclusive
 phase is **~32×** cheaper than a real atomic RMW (plain stores), the shared phase
 is **at parity** with a raw `AtomicU64` (zero-cost wrapper), and a mixed
 build-then-publish workload is **~1.93×** faster end to end. `Relaxed`,

@@ -41,6 +41,10 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   126/126, alloc-only Nextest 80/80, strict Clippy for both feature surfaces,
   offline check, 31 doctests, rustdoc, and diff checks.
 
+- [x] [patch] Repair the conditional-atomic README link after the atomic
+  module hierarchy split; the documented `BrandedAtomic` source now resolves to
+  `src/atomic/branded.rs`.
+
 - [x] [patch] Harden registered partition panic recovery against mutex poisoning.
   `sync::scoped::partition::driver_core` now recovers the first captured panic
   payload with `PoisonError::into_inner` both when task wrappers report a panic
