@@ -7,6 +7,8 @@ mod slice;
 mod cow;
 
 #[cfg(feature = "alloc")]
+pub(crate) use cow::cow_from_segments;
+#[cfg(feature = "alloc")]
 pub use cow::{Borrowed, CellCowExt, CowPolicy, RetainDecision, Retained};
 pub use reference::{MelinoeMut, MelinoeRef};
 pub use slice::CellSliceExt;

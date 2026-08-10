@@ -89,6 +89,18 @@ Target version: 0.9.0
   81/81; strict Clippy on both feature surfaces; 31 doctests; rustdoc; rustfmt;
   and diff checks.
 
+## Segmented Cow policy ownership (Unreleased)
+
+- [x] Claim the provider-local cleanup without touching peer-owned manifest,
+  changelog, or partition-plan files.
+- [x] Move the generic two-segment `Cow` assembly helper beside `CowPolicy` and
+  route the deque view through that owner without changing public methods.
+- [x] Preserve zero-copy contiguous borrowing, retained ownership, and wrapped
+  value semantics through the existing branded collection tests.
+- [x] Evidence: focused branded-deque Nextest 22/22; all-feature and alloc-only
+  Nextest; strict Clippy on both feature surfaces; 31 doctests; rustdoc;
+  rustfmt; and diff checks.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent

@@ -1,26 +1,12 @@
 use alloc::borrow::Cow;
 
+use crate::cell::cow_from_segments;
 use crate::{
     Borrowed, CowPolicy, MelinoeCell, MelinoeMut, MelinoeRef, ReadPermit, RetainDecision, Retained,
     WritePermit,
 };
 
 use super::BrandedVecDeque;
-
-fn cow_from_segments<'a, T, C>(first: &'a [T], second: &[T], _policy: C) -> Cow<'a, [T]>
-where
-    T: Clone,
-    C: CowPolicy,
-{
-    if second.is_empty() {
-        C::cow(first)
-    } else {
-        let mut values = alloc::vec::Vec::with_capacity(first.len() + second.len());
-        values.extend_from_slice(first);
-        values.extend_from_slice(second);
-        Cow::Owned(values)
-    }
-}
 
 impl<'brand, T> BrandedVecDeque<'brand, T> {
     /// Return a permit-gated shared reference to one value.
