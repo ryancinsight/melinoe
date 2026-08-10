@@ -91,14 +91,15 @@ Target version: 0.9.0
 
 ## Segmented Cow policy ownership (Unreleased)
 
-- [ ] Claim the provider-local cleanup without touching peer-owned manifest,
+- [x] Claim the provider-local cleanup without touching peer-owned manifest,
   changelog, or partition-plan files.
-- [ ] Move the generic two-segment `Cow` assembly helper beside `CowPolicy` and
+- [x] Move the generic two-segment `Cow` assembly helper beside `CowPolicy` and
   route the deque view through that owner without changing public methods.
-- [ ] Preserve zero-copy contiguous borrowing, retained ownership, and wrapped
+- [x] Preserve zero-copy contiguous borrowing, retained ownership, and wrapped
   value semantics through the existing branded collection tests.
-- [ ] Evidence: focused branded collection Nextest, feature-surface Clippy,
-  doctests, rustdoc, rustfmt, and diff checks.
+- [x] Evidence: focused branded-deque Nextest 22/22; all-feature and alloc-only
+  Nextest; strict Clippy on both feature surfaces; 31 doctests; rustdoc;
+  rustfmt; and diff checks.
 
 ## Current micro-sprint (0.9.0)
 

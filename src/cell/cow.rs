@@ -72,6 +72,28 @@ impl RetainDecision {
     }
 }
 
+/// Build a boundary `Cow` from two logical segments.
+///
+/// A single segment delegates to the selected policy. Two segments cannot be
+/// represented by one borrowed slice, so they are concatenated into owned
+/// storage regardless of the policy. The helper lives beside [`CowPolicy`] so
+/// segmented collection adapters share the same ownership decision.
+#[inline]
+pub(crate) fn cow_from_segments<'a, T, C>(first: &'a [T], second: &[T], _policy: C) -> Cow<'a, [T]>
+where
+    T: Clone,
+    C: CowPolicy,
+{
+    if second.is_empty() {
+        C::cow(first)
+    } else {
+        let mut values = alloc::vec::Vec::with_capacity(first.len() + second.len());
+        values.extend_from_slice(first);
+        values.extend_from_slice(second);
+        Cow::Owned(values)
+    }
+}
+
 /// Conditional `Cow` views over `[MelinoeCell<'brand, T>]`, gated by a read
 /// permit.
 pub trait CellCowExt<'brand, T> {

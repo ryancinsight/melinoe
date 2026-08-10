@@ -82,10 +82,12 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   checks all pass. Implementation scope is one provider-local source file;
   no consumer or peer-owned files changed.
 
-- [ ] [patch] (in progress, owner=codex) Move segmented `Cow` assembly into
-  the existing `cell::cow` policy owner. Keep `BrandedVecDeque` as a consumer
-  of the sealed `CowPolicy` seam, preserve contiguous zero-copy and wrapped
-  owned behavior, and avoid changing public APIs or peer-owned files.
+- [x] [patch] Move segmented `Cow` assembly into the existing `cell::cow`
+  policy owner. `BrandedVecDeque` remains a consumer of the sealed `CowPolicy`
+  seam; contiguous zero-copy and wrapped owned behavior remain unchanged, with
+  no public API or peer-owned file changes. Evidence: focused branded-deque
+  Nextest 22/22, all-feature and alloc-only Nextest, strict Clippy on both
+  feature surfaces, 31 doctests, rustdoc, rustfmt, and diff checks.
 
 - [x] [patch] Publish future releases through a pinned GitHub Actions workflow
   using crates.io OIDC Trusted Publishing and no stored registry credential.
