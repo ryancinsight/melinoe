@@ -131,6 +131,13 @@ impl<'brand, T> Extend<T> for BrandedVecDeque<'brand, T> {
 impl<'brand, T> From<VecDeque<T>> for BrandedVecDeque<'brand, T> {
     #[inline]
     fn from(values: VecDeque<T>) -> Self {
+        // SAFETY: `MelinoeCell<'brand, T>` is `#[repr(transparent)]` over
+        // `UnsafeCell<T>`, preserving the element's size, alignment, and
+        // validity. `VecDeque` stores the element allocation and metadata
+        // independently of the element value, so reinterpreting its element
+        // type preserves the deque representation. `ManuallyDrop` prevents
+        // the source deque from being dropped, and `ptr::read` transfers that
+        // representation to the branded owner exactly once.
         unsafe {
             let values = core::mem::ManuallyDrop::new(values);
             let cells = core::ptr::read(

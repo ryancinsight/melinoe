@@ -1,10 +1,26 @@
 use alloc::borrow::Cow;
 
 use crate::{
-    CowPolicy, MelinoeCell, MelinoeMut, MelinoeRef, ReadPermit, RetainDecision, WritePermit,
+    Borrowed, CowPolicy, MelinoeCell, MelinoeMut, MelinoeRef, ReadPermit, RetainDecision, Retained,
+    WritePermit,
 };
 
 use super::BrandedVecDeque;
+
+fn cow_from_segments<'a, T, C>(first: &'a [T], second: &[T], _policy: C) -> Cow<'a, [T]>
+where
+    T: Clone,
+    C: CowPolicy,
+{
+    if second.is_empty() {
+        C::cow(first)
+    } else {
+        let mut values = alloc::vec::Vec::with_capacity(first.len() + second.len());
+        values.extend_from_slice(first);
+        values.extend_from_slice(second);
+        Cow::Owned(values)
+    }
+}
 
 impl<'brand, T> BrandedVecDeque<'brand, T> {
     /// Return a permit-gated shared reference to one value.
@@ -76,14 +92,7 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
         P: ReadPermit<'brand> + 'a,
     {
         let (s1, s2) = self.as_slices(permit);
-        if s2.is_empty() {
-            Cow::Borrowed(s1)
-        } else {
-            let mut v = alloc::vec::Vec::with_capacity(s1.len() + s2.len());
-            v.extend_from_slice(s1);
-            v.extend_from_slice(s2);
-            Cow::Owned(v)
-        }
+        cow_from_segments(s1, s2, Borrowed)
     }
 
     /// Return an owned `Cow` by cloning all queue elements into a vector.
@@ -94,10 +103,7 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
         P: ReadPermit<'brand> + 'a,
     {
         let (s1, s2) = self.as_slices(permit);
-        let mut v = alloc::vec::Vec::with_capacity(s1.len() + s2.len());
-        v.extend_from_slice(s1);
-        v.extend_from_slice(s2);
-        Cow::Owned(v)
+        cow_from_segments(s1, s2, Retained)
     }
 
     /// Return a `Cow` according to a runtime retain decision.
@@ -125,14 +131,7 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
         C: CowPolicy,
     {
         let (s1, s2) = self.as_slices(permit);
-        if s2.is_empty() {
-            C::cow(s1)
-        } else {
-            let mut v = alloc::vec::Vec::with_capacity(s1.len() + s2.len());
-            v.extend_from_slice(s1);
-            v.extend_from_slice(s2);
-            Cow::Owned(v)
-        }
+        cow_from_segments(s1, s2, _policy)
     }
 
     /// Clone the branded queue by presenting a read permit.
