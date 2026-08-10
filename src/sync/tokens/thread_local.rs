@@ -4,7 +4,9 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::token::capability::private::Sealed;
-use crate::token::{InvariantLifetime, ReadPermit, WritePermit};
+use crate::token::{
+    with_fresh_token, FreshBrand, InvariantLifetime, ReadPermit, TokenFamily, WritePermit,
+};
 
 /// A brand owner that is statically pinned to one thread.
 ///
@@ -22,6 +24,24 @@ pub struct ThreadLocalToken<'brand> {
     _invariant: InvariantLifetime<'brand>,
     /// `*const ()` is `!Send + !Sync`, propagating thread-confinement to the token.
     _not_threadsafe: PhantomData<*const ()>,
+}
+
+/// Token-family selector for thread-confined scopes.
+pub(crate) struct ThreadLocalFamily;
+
+impl TokenFamily for ThreadLocalFamily {
+    type Token<'brand>
+        = ThreadLocalToken<'brand>
+    where
+        Self: 'brand;
+
+    #[inline]
+    fn mint<'brand>(brand: FreshBrand<'brand>) -> Self::Token<'brand> {
+        Self::Token {
+            _invariant: brand.into_invariant(),
+            _not_threadsafe: PhantomData,
+        }
+    }
 }
 
 impl<'brand> ThreadLocalToken<'brand> {
@@ -89,7 +109,5 @@ unsafe impl<'brand> WritePermit<'brand> for &mut ThreadLocalToken<'brand> {}
 /// ```
 #[inline]
 pub fn thread_local_scope<R>(f: impl for<'brand> FnOnce(ThreadLocalToken<'brand>) -> R) -> R {
-    // SAFETY: `for<'brand>` yields a fresh invariant brand unique to this call,
-    // so the token is the only `ThreadLocalToken<'brand>` in existence.
-    f(unsafe { ThreadLocalToken::new_unchecked() })
+    with_fresh_token::<ThreadLocalFamily, _, _>(f)
 }

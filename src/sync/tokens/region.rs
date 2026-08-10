@@ -4,7 +4,10 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::token::capability::private::Sealed;
-use crate::token::{InvariantLifetime, ReadPermit, SharedReadToken, WritePermit};
+use crate::token::{
+    with_fresh_token, FreshBrand, InvariantLifetime, ReadPermit, SharedReadToken, TokenFamily,
+    WritePermit,
+};
 
 /// A brand owner that is `Send + Sync` and may be handed across thread
 /// boundaries to relocate exclusive write capability.
@@ -32,6 +35,23 @@ use crate::token::{InvariantLifetime, ReadPermit, SharedReadToken, WritePermit};
 /// [`share`](Self::share), switches to shared readback/observer capability.
 pub struct SyncRegionToken<'brand> {
     _invariant: InvariantLifetime<'brand>,
+}
+
+/// Token-family selector for cross-thread region scopes.
+pub(crate) struct SyncRegionFamily;
+
+impl TokenFamily for SyncRegionFamily {
+    type Token<'brand>
+        = SyncRegionToken<'brand>
+    where
+        Self: 'brand;
+
+    #[inline]
+    fn mint<'brand>(brand: FreshBrand<'brand>) -> Self::Token<'brand> {
+        Self::Token {
+            _invariant: brand.into_invariant(),
+        }
+    }
 }
 
 impl<'brand> SyncRegionToken<'brand> {
@@ -101,7 +121,5 @@ unsafe impl<'brand> WritePermit<'brand> for &mut SyncRegionToken<'brand> {}
 /// ```
 #[inline]
 pub fn sync_region_scope<R>(f: impl for<'brand> FnOnce(SyncRegionToken<'brand>) -> R) -> R {
-    // SAFETY: `for<'brand>` yields a fresh invariant brand unique to this call,
-    // so the token is the only `SyncRegionToken<'brand>` in existence.
-    f(unsafe { SyncRegionToken::new_unchecked() })
+    with_fresh_token::<SyncRegionFamily, _, _>(f)
 }

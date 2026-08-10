@@ -12,10 +12,12 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::cell::Cell;
 
+#[cfg(feature = "std")]
+use melinoe::collections::with_generated;
 use melinoe::collections::BrandedVec;
 #[cfg(feature = "std")]
 use melinoe::sync::PartitionPlan;
-use melinoe::{brand_scope, Borrowed, Retained};
+use melinoe::{brand_scope, Borrowed, CellSliceExt, Retained};
 
 #[derive(Debug, Eq, PartialEq)]
 struct CountedClone<'a> {
@@ -31,6 +33,35 @@ impl Clone for CountedClone<'_> {
             clones: self.clones,
         }
     }
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn with_generated_keeps_brand_scoped_through_parallel_mutation() {
+    let checksum = with_generated(
+        8,
+        |index| index * index,
+        |mut values, mut token| {
+            #[cfg(feature = "std")]
+            values.partition_for_each_mut_with(PartitionPlan::chunk_size(2), |_, shard| {
+                for value in shard {
+                    *value += 1;
+                }
+            });
+
+            values.as_slice(&mut token).iter().sum::<usize>()
+        },
+    );
+
+    assert_eq!(checksum, 148);
+}
+
+#[test]
+fn from_fn_generates_indexed_values() {
+    brand_scope(|token| {
+        let values = BrandedVec::from_fn(5, |index| index * 3);
+        assert_eq!(values.as_slice(&token), &[0, 3, 6, 9, 12]);
+    });
 }
 
 #[test]
@@ -110,6 +141,15 @@ fn cow_policies_preserve_borrow_or_clone_contract() {
             }
         }
         assert_eq!(clones.get(), 2);
+    });
+}
+
+#[test]
+fn into_boxed_cells_preserves_branded_storage() {
+    brand_scope(|token| {
+        let values = BrandedVec::from_iter([5_u8, 8, 13]);
+        let cells = values.into_boxed_cells();
+        assert_eq!(cells.borrow_slice(&token), &[5, 8, 13]);
     });
 }
 

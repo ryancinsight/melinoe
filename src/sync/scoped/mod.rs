@@ -10,7 +10,9 @@ pub use partition::{
     register_parallel_executor, ParallelExecutor, PartitionPlan,
 };
 
+use super::tokens::SyncRegionFamily;
 use super::SyncRegionToken;
+use crate::token::with_fresh_token;
 
 /// Run a branded computation on a freshly spawned worker thread, transferring
 /// exclusive write capability across the thread boundary.
@@ -48,13 +50,7 @@ where
     F: Send + for<'brand> FnOnce(SyncRegionToken<'brand>) -> R,
 {
     std::thread::scope(|scope| {
-        let handle = scope.spawn(|| {
-            // SAFETY: `for<'brand>` makes `'brand` fresh and invariant for this
-            // call; the token minted here is the only `SyncRegionToken<'brand>`
-            // in existence, and it never leaves this worker thread.
-            let token = unsafe { SyncRegionToken::new_unchecked() };
-            f(token)
-        });
+        let handle = scope.spawn(|| with_fresh_token::<SyncRegionFamily, _, _>(f));
         match handle.join() {
             Ok(result) => result,
             Err(payload) => std::panic::resume_unwind(payload),

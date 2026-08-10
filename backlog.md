@@ -13,6 +13,34 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
+- [x] [minor] Add generic branded-vector generation through
+  `BrandedVec::from_fn` and `collections::with_generated`. The fresh
+  higher-ranked brand remains inside the callback while its result escapes;
+  generated cells compose with the existing partition driver, and
+  `into_boxed_cells` supports Themis's branded placement container. Keep
+  topology providers above Melinoe: Themis-derived worker counts enter through
+  `PartitionPlan::parts`, not a reverse dependency. Evidence: all-feature
+  Nextest 125/125, alloc-only Nextest 79/79, strict Clippy for both feature
+  surfaces, offline check, documentation and semver gates, Themis branded
+  placement compile, and CFDrs `cfd-core` Nextest 269/269 through the Atlas
+  overlay.
+
+- [x] [patch] Consolidate conditional-atomic ordering resolution behind one
+  generic `OrderingSource` strategy. Runtime `Ordering` and sealed ZST
+  `AtomicOrder` policies now share the same operation bodies; static policy
+  monomorphizations retain their associated ordering constants without a
+  runtime policy branch. No public API or consumer migration is required.
+  Evidence: ordering-role unit coverage, all-feature Nextest 126/126, strict
+  Clippy, and offline check.
+
+- [x] [patch] Consolidate fresh higher-ranked brand minting behind the private
+  GAT-based `TokenFamily` factory. Exclusive, cross-thread region, thread-local,
+  scoped-worker, and reentrant entry points now share one brand proof boundary
+  while retaining their distinct token auto-trait postures. Public signatures
+  and consumer behavior remain unchanged. Evidence: all-feature Nextest
+  126/126, alloc-only Nextest 80/80, strict Clippy for both feature surfaces,
+  offline check, 31 doctests, rustdoc, and diff checks.
+
 - [x] [patch] Harden registered partition panic recovery against mutex poisoning.
   `sync::scoped::partition::driver_core` now recovers the first captured panic
   payload with `PoisonError::into_inner` both when task wrappers report a panic

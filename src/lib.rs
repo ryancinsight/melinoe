@@ -250,4 +250,6 @@ pub use sync::{clear_parallel_executor, register_parallel_executor, ParallelExec
 
 #[doc(inline)]
 #[cfg(feature = "alloc")]
-pub use collections::{BrandedDrain, BrandedVec, BrandedVecDeque, BrandedVecDequeDrain};
+pub use collections::{
+    with_generated, BrandedDrain, BrandedVec, BrandedVecDeque, BrandedVecDequeDrain,
+};

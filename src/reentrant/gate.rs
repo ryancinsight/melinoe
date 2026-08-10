@@ -1,6 +1,6 @@
 use crate::reentrant::error::Reentered;
 use crate::reentrant::reset::Reset;
-use crate::token::ExclusiveToken;
+use crate::token::{with_fresh_token, ExclusiveFamily, ExclusiveToken};
 use core::cell::Cell;
 
 /// A thread-confined gate yielding at most one exclusive branded token at a time.
@@ -65,11 +65,6 @@ impl ReentrancyCell {
         f: impl for<'brand> FnOnce(ExclusiveToken<'brand>) -> R,
     ) -> Result<R, Reentered> {
         let _reset = Reset::acquire(&self.active)?;
-        // SAFETY: the flag (set by `acquire`, re-checked by any nested `enter`)
-        // guarantees no other token minted by this cell is live, and `for<'brand>`
-        // makes the brand fresh and non-escaping — so this is the unique
-        // `ExclusiveToken` for its brand, satisfying `new_unchecked`.
-        let token = unsafe { ExclusiveToken::new_unchecked() };
-        Ok(f(token))
+        Ok(with_fresh_token::<ExclusiveFamily, _, _>(f))
     }
 }

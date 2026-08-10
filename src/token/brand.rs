@@ -20,6 +20,60 @@ use super::ExclusiveToken;
 /// `Sync`, so the marker never perturbs the auto-trait inference of its host.
 pub type InvariantLifetime<'brand> = PhantomData<fn(&'brand ()) -> &'brand ()>;
 
+/// The private input to a fresh token-family factory.
+///
+/// It is intentionally linear: the factory creates one value for one
+/// higher-ranked brand, and a token family consumes it while constructing its
+/// concrete token. This keeps the fresh-brand proof in one generic boundary
+/// while allowing token families to retain distinct auto-trait postures.
+pub(crate) struct FreshBrand<'brand> {
+    invariant: InvariantLifetime<'brand>,
+}
+
+impl<'brand> FreshBrand<'brand> {
+    #[inline]
+    const fn new() -> Self {
+        Self {
+            invariant: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn into_invariant(self) -> InvariantLifetime<'brand> {
+        self.invariant
+    }
+}
+
+/// A zero-sized family that constructs one concrete token per fresh brand.
+pub(crate) trait TokenFamily {
+    type Token<'brand>
+    where
+        Self: 'brand;
+
+    fn mint<'brand>(brand: FreshBrand<'brand>) -> Self::Token<'brand>;
+}
+
+#[inline]
+fn with_fresh_brand<R, F>(f: F) -> R
+where
+    F: for<'brand> FnOnce(FreshBrand<'brand>) -> R,
+{
+    f(FreshBrand::new())
+}
+
+/// Run a callback with a token from one fresh, higher-ranked brand.
+///
+/// The family selects the token's auto-trait and capability posture; the
+/// callback result may escape, but the family token and its brand cannot.
+#[inline]
+pub(crate) fn with_fresh_token<Family, R, F>(f: F) -> R
+where
+    Family: TokenFamily + 'static,
+    F: for<'brand> FnOnce(Family::Token<'brand>) -> R,
+{
+    with_fresh_brand(|brand| f(Family::mint(brand)))
+}
+
 /// Open a fresh branding scope and hand its unique [`ExclusiveToken`] to `f`.
 ///
 /// The higher-ranked bound `for<'brand>` universally quantifies the brand, so
@@ -64,9 +118,5 @@ pub type InvariantLifetime<'brand> = PhantomData<fn(&'brand ()) -> &'brand ()>;
 /// ```
 #[inline]
 pub fn brand_scope<R>(f: impl for<'brand> FnOnce(ExclusiveToken<'brand>) -> R) -> R {
-    // SAFETY: `for<'brand>` makes `'brand` a fresh, invariant lifetime that the
-    // type system cannot unify with any other brand. No other `ExclusiveToken`
-    // can name this `'brand`, so the token produced here is unique, satisfying
-    // `ExclusiveToken::new_unchecked`'s contract.
-    f(unsafe { ExclusiveToken::new_unchecked() })
+    with_fresh_token::<super::ExclusiveFamily, _, _>(f)
 }

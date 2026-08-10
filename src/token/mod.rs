@@ -22,6 +22,8 @@ mod shared;
 pub use brand::InvariantLifetime;
 
 pub use brand::brand_scope;
+pub(crate) use brand::{with_fresh_token, FreshBrand, TokenFamily};
 pub use capability::{ReadPermit, WritePermit};
+pub(crate) use exclusive::ExclusiveFamily;
 pub use exclusive::ExclusiveToken;
 pub use shared::SharedReadToken;

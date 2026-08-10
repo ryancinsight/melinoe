@@ -8,6 +8,13 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Changed
 
+- [minor] Added generic branded-vector generation through
+  `BrandedVec::from_fn` and `collections::with_generated`. The latter owns the
+  fresh higher-ranked brand for the callback, so generated storage and its
+  exclusive token cannot escape while the callback result can. Added
+  `into_boxed_cells` for the zero-copy branded-storage handoff used by Themis
+  placement containers.
+
 - [patch] Harden registered-partition panic recovery against mutex poisoning:
   `sync::scoped::partition::driver_core` recovers the first captured panic
   payload with `PoisonError::into_inner` both when task wrappers report a

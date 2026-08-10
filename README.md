@@ -23,6 +23,27 @@ to the Melinoe permit system rather than carrying an independent ghost-token
 implementation. Their default `std` feature also routes partitioned concurrent
 reads and mutation through Melinoe's `PartitionPlan` / `WriterShard` driver.
 
+For generated workloads, `BrandedVec::from_fn` constructs indexed values
+inside an existing brand, while `collections::with_generated` creates a fresh
+brand and passes the generated vector plus its exclusive token to a callback.
+Consumers that retain Melinoe cells in a domain-specific branded container can
+use `BrandedVec::into_boxed_cells` to transfer owned cell storage while keeping
+the brand attached:
+
+```rust
+use melinoe::collections::with_generated;
+
+let checksum = with_generated(4, |index| index + 1, |values, token| {
+    values.as_slice(&token).iter().sum::<usize>()
+});
+assert_eq!(checksum, 10);
+```
+
+The callback result may escape, but the branded vector and token cannot. Under
+`std`, the callback can compose this generated region with the existing
+partitioned read/write helpers without introducing another scheduler or
+runtime borrow flag.
+
 > *In Greek myth, Melinoë leads a restless train of phantoms through the night.
 > Here she leads a train of phantom **types** — each a wisp of pure evidence,
 > weightless at runtime, that polices access to memory.*

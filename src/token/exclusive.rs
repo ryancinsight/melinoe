@@ -3,7 +3,7 @@
 use core::fmt;
 use core::marker::PhantomData;
 
-use super::brand::InvariantLifetime;
+use super::brand::{FreshBrand, InvariantLifetime, TokenFamily};
 use super::capability::private::Sealed;
 use super::capability::{ReadPermit, WritePermit};
 use super::SharedReadToken;
@@ -32,6 +32,23 @@ use super::SharedReadToken;
 /// > is the one shade permitted to disturb the dead.*
 pub struct ExclusiveToken<'brand> {
     _invariant: InvariantLifetime<'brand>,
+}
+
+/// Token-family selector for the standard exclusive brand scope.
+pub(crate) struct ExclusiveFamily;
+
+impl TokenFamily for ExclusiveFamily {
+    type Token<'brand>
+        = ExclusiveToken<'brand>
+    where
+        Self: 'brand;
+
+    #[inline]
+    fn mint<'brand>(brand: FreshBrand<'brand>) -> Self::Token<'brand> {
+        Self::Token {
+            _invariant: brand.into_invariant(),
+        }
+    }
 }
 
 impl<'brand> ExclusiveToken<'brand> {

@@ -7,6 +7,45 @@ Target version: 0.9.0
 - [x] Add and validate the release workflow, then register `melinoe` against
   `ryancinsight/melinoe/.github/workflows/rust-release.yml` in crates.io.
 
+## Generativity continuation (Unreleased)
+
+- [x] [minor] Add `BrandedVec::from_fn` for index-sensitive generation and
+  `collections::with_generated` for fresh-brand collection workflows.
+- [x] Keep the higher-ranked callback boundary generic: only the callback
+  result may escape; the generated vector and exclusive token remain scoped.
+- [x] Compose generated storage with the existing Melinoe partition driver and
+  retain direct `MelinoeCell` access plus the `into_boxed_cells` handoff for
+  downstream providers; do not add a second scheduler or an upward dependency
+  on Themis.
+- [x] Synchronize public exports, README, changelog, and value-semantic tests.
+- [x] Evidence: all-feature Nextest 125/125, alloc-only Nextest 79/79,
+  all-target/all-feature Clippy, alloc-only Clippy, offline check, rustfmt,
+  doctests, rustdoc, semver checks (196 pass, 57 skip), and locked
+  no-dependency metadata. Downstream evidence: Themis branded placement and
+  CFDrs `cfd-core` compile through the Atlas overlay; CFDrs Nextest 269/269.
+
+## Conditional-atomic genericity cleanup (Unreleased)
+
+- [x] [patch] Consolidate runtime `Ordering` and compile-time `AtomicOrder`
+  resolution behind the private generic `OrderingSource` strategy. Keep the
+  public runtime and ZST entry points unchanged while sharing the operation
+  bodies and preserving role-specific load/store/RMW/failure orderings.
+- [x] Add value-semantic coverage for runtime and ZST ordering-role mapping.
+- [x] Evidence: all-feature Nextest 126/126, strict all-target/all-feature
+  Clippy, offline check, and rustfmt.
+
+## Fresh-brand factory cleanup (Unreleased)
+
+- [x] [patch] Centralize fresh brand construction behind the private
+  higher-ranked `TokenFamily`/`with_fresh_token` factory. Preserve separate
+  exclusive, cross-thread region, and thread-local token families, including
+  the thread-local non-`Send` marker.
+- [x] Replace repeated scope-local unsafe minting in public branding, scoped
+  worker, and reentrant entry points without changing their public contracts.
+- [x] Evidence: all-feature Nextest 126/126, alloc-only Nextest 80/80,
+  all-target/all-feature and alloc-only Clippy, offline check, rustfmt,
+  31 doctests, and rustdoc.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent

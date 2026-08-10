@@ -10,8 +10,12 @@ use core::num::NonZeroUsize;
 pub enum PartitionPlan {
     /// Split into at most this many non-empty shards.
     Parts(NonZeroUsize),
-    /// Split into at most `std::thread::available_parallelism()` non-empty
-    /// shards, falling back to one shard if the platform cannot report it.
+    /// Split into at most hardware-parallel shard count.
+    ///
+    /// This uses `std::thread::available_parallelism()` and falls back to one
+    /// shard when the platform cannot report it. Consumers with a richer
+    /// topology provider can pass its validated processor count to
+    /// [`PartitionPlan::parts`] without adding a dependency to Melinoe.
     AvailableParallelism,
     /// Split into non-empty shards containing at most this many cells.
     ChunkSize(NonZeroUsize),
