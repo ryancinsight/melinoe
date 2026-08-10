@@ -7,6 +7,23 @@ Target version: 0.9.0
 - [x] Add and validate the release workflow, then register `melinoe` against
   `ryancinsight/melinoe/.github/workflows/rust-release.yml` in crates.io.
 
+## Generativity continuation (Unreleased)
+
+- [x] [minor] Add `BrandedVec::from_fn` for index-sensitive generation and
+  `collections::with_generated` for fresh-brand collection workflows.
+- [x] Keep the higher-ranked callback boundary generic: only the callback
+  result may escape; the generated vector and exclusive token remain scoped.
+- [x] Compose generated storage with the existing Melinoe partition driver and
+  retain direct `MelinoeCell` access plus the `into_boxed_cells` handoff for
+  downstream providers; do not add a second scheduler or an upward dependency
+  on Themis.
+- [x] Synchronize public exports, README, changelog, and value-semantic tests.
+- [x] Evidence: all-feature Nextest 125/125, alloc-only Nextest 79/79,
+  all-target/all-feature Clippy, alloc-only Clippy, offline check, rustfmt,
+  doctests, rustdoc, semver checks (196 pass, 57 skip), and locked
+  no-dependency metadata. Downstream evidence: Themis branded placement and
+  CFDrs `cfd-core` compile through the Atlas overlay; CFDrs Nextest 269/269.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent

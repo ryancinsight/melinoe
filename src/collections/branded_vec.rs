@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 use core::iter::FromIterator;
 
 use crate::{
-    CellCowExt, CellSliceExt, CowPolicy, MelinoeCell, MelinoeMut, MelinoeRef, ReadPermit,
-    RetainDecision, WritePermit,
+    brand_scope, CellCowExt, CellSliceExt, CowPolicy, ExclusiveToken, MelinoeCell, MelinoeMut,
+    MelinoeRef, ReadPermit, RetainDecision, WritePermit,
 };
 
 /// A branded vector backed by `Vec<MelinoeCell<'brand, T>>`.
@@ -17,6 +17,41 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct BrandedVec<'brand, T> {
     cells: Vec<MelinoeCell<'brand, T>>,
+}
+
+/// Generate a branded vector and run a closure while its fresh brand is live.
+///
+/// This is the ergonomic generativity boundary for collection-backed work:
+/// [`brand_scope`](crate::brand_scope) mints an invariant higher-ranked brand,
+/// the generator fills storage under that brand, and the callback receives both
+/// the vector and its unique [`ExclusiveToken`](crate::ExclusiveToken). The
+/// callback's return value may escape, but the branded vector or token cannot.
+///
+/// The generator itself runs sequentially because it constructs the owned
+/// collection. Use [`BrandedVec::partition_for_each_mut_with`] inside `f` when
+/// the generated region needs a parallel mutation phase.
+///
+/// # Examples
+///
+/// ```
+/// use melinoe::collections::with_generated;
+///
+/// let checksum = with_generated(8, |index| index * index, |values, token| {
+///     values.as_slice(&token).iter().sum::<usize>()
+/// });
+/// assert_eq!(checksum, 140);
+/// ```
+///
+/// With `std`, the callback can instead call
+/// [`BrandedVec::partition_for_each_mut_with`] for a parallel mutation phase
+/// while the fresh brand remains scoped to the callback.
+#[inline]
+pub fn with_generated<T, R, G, F>(len: usize, mut generate: G, f: F) -> R
+where
+    G: FnMut(usize) -> T,
+    F: for<'brand> FnOnce(BrandedVec<'brand, T>, ExclusiveToken<'brand>) -> R,
+{
+    brand_scope(|token| f(BrandedVec::from_fn(len, &mut generate), token))
 }
 
 impl<'brand, T> BrandedVec<'brand, T> {
@@ -34,6 +69,24 @@ impl<'brand, T> BrandedVec<'brand, T> {
         Self {
             cells: Vec::with_capacity(capacity),
         }
+    }
+
+    /// Generate `len` values in index order inside this brand.
+    ///
+    /// This is the collection-level constructor for callers that already own a
+    /// surrounding brand. For an end-to-end generated computation that should mint
+    /// and consume a fresh brand in one expression, use [`with_generated`]. The
+    /// generator runs before the vector is handed to any permit-gated operation,
+    /// while generated storage can only be accessed with the matching token.
+    #[inline]
+    #[must_use]
+    pub fn from_fn<F>(len: usize, mut generate: F) -> Self
+    where
+        F: FnMut(usize) -> T,
+    {
+        let mut values = Self::with_capacity(len);
+        values.extend((0..len).map(&mut generate));
+        values
     }
 
     /// Return the number of values in the vector.
@@ -258,6 +311,19 @@ impl<'brand, T> BrandedVec<'brand, T> {
         P: ReadPermit<'brand> + 'a,
     {
         self.cells.borrow_cow_if(permit, decision)
+    }
+
+    /// Consume the branded vector and return its owned cell storage.
+    ///
+    /// This is the branded-storage handoff for consumers that retain Melinoe
+    /// cells inside a domain-specific container. The brand remains attached to
+    /// every cell, so the recipient can expose only permit-gated access while
+    /// taking ownership of the allocation. Converting to a boxed slice may
+    /// reallocate when excess vector capacity must be trimmed.
+    #[inline]
+    #[must_use]
+    pub fn into_boxed_cells(self) -> alloc::boxed::Box<[MelinoeCell<'brand, T>]> {
+        self.cells.into_boxed_slice()
     }
 
     /// Consume the branded vector and return the owned values.
