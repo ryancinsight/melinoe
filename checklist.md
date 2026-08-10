@@ -24,6 +24,16 @@ Target version: 0.9.0
   no-dependency metadata. Downstream evidence: Themis branded placement and
   CFDrs `cfd-core` compile through the Atlas overlay; CFDrs Nextest 269/269.
 
+## Conditional-atomic genericity cleanup (Unreleased)
+
+- [x] [patch] Consolidate runtime `Ordering` and compile-time `AtomicOrder`
+  resolution behind the private generic `OrderingSource` strategy. Keep the
+  public runtime and ZST entry points unchanged while sharing the operation
+  bodies and preserving role-specific load/store/RMW/failure orderings.
+- [x] Add value-semantic coverage for runtime and ZST ordering-role mapping.
+- [x] Evidence: all-feature Nextest 126/126, strict all-target/all-feature
+  Clippy, offline check, and rustfmt.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent

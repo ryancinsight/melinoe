@@ -25,6 +25,14 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   placement compile, and CFDrs `cfd-core` Nextest 269/269 through the Atlas
   overlay.
 
+- [x] [patch] Consolidate conditional-atomic ordering resolution behind one
+  generic `OrderingSource` strategy. Runtime `Ordering` and sealed ZST
+  `AtomicOrder` policies now share the same operation bodies; static policy
+  monomorphizations retain their associated ordering constants without a
+  runtime policy branch. No public API or consumer migration is required.
+  Evidence: ordering-role unit coverage, all-feature Nextest 126/126, strict
+  Clippy, and offline check.
+
 - [x] [patch] Harden registered partition panic recovery against mutex poisoning.
   `sync::scoped::partition::driver_core` now recovers the first captured panic
   payload with `PoisonError::into_inner` both when task wrappers report a panic

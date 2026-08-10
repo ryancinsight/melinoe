@@ -57,3 +57,84 @@ impl AtomicOrder for SeqCst {
 impl sealed::Sealed for Relaxed {}
 impl sealed::Sealed for AcqRel {}
 impl sealed::Sealed for SeqCst {}
+
+/// Internal ordering source shared by runtime and compile-time policies.
+///
+/// Runtime [`Ordering`] values preserve their caller-selected order for every
+/// operation. A sealed [`AtomicOrder`] policy instead resolves each operation
+/// to an associated constant, so the same generic operation body
+/// monomorphizes to the fixed ordering without retaining a runtime policy
+/// branch.
+pub(crate) trait OrderingSource: Copy {
+    /// Resolve a load ordering.
+    fn load_order(self) -> Ordering;
+    /// Resolve a store ordering.
+    fn store_order(self) -> Ordering;
+    /// Resolve a read-modify-write ordering.
+    fn rmw_order(self) -> Ordering;
+    /// Resolve a failed-update ordering.
+    fn failure_order(self) -> Ordering;
+}
+
+impl OrderingSource for Ordering {
+    #[inline]
+    fn load_order(self) -> Ordering {
+        self
+    }
+
+    #[inline]
+    fn store_order(self) -> Ordering {
+        self
+    }
+
+    #[inline]
+    fn rmw_order(self) -> Ordering {
+        self
+    }
+
+    #[inline]
+    fn failure_order(self) -> Ordering {
+        self
+    }
+}
+
+impl<O: AtomicOrder> OrderingSource for O {
+    #[inline]
+    fn load_order(self) -> Ordering {
+        O::LOAD
+    }
+
+    #[inline]
+    fn store_order(self) -> Ordering {
+        O::STORE
+    }
+
+    #[inline]
+    fn rmw_order(self) -> Ordering {
+        O::RMW
+    }
+
+    #[inline]
+    fn failure_order(self) -> Ordering {
+        O::FAILURE
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ordering_sources_preserve_runtime_and_policy_roles() {
+        assert_eq!(Ordering::Relaxed.load_order(), Ordering::Relaxed);
+        assert_eq!(Ordering::Acquire.store_order(), Ordering::Acquire);
+        assert_eq!(Ordering::Release.rmw_order(), Ordering::Release);
+        assert_eq!(Ordering::AcqRel.failure_order(), Ordering::AcqRel);
+
+        assert_eq!(Relaxed.load_order(), Ordering::Relaxed);
+        assert_eq!(AcqRel.store_order(), Ordering::Release);
+        assert_eq!(AcqRel.rmw_order(), Ordering::AcqRel);
+        assert_eq!(AcqRel.failure_order(), Ordering::Acquire);
+        assert_eq!(SeqCst.failure_order(), Ordering::SeqCst);
+    }
+}
