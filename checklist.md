@@ -46,6 +46,13 @@ Target version: 0.9.0
   all-target/all-feature and alloc-only Clippy, offline check, rustfmt,
   31 doctests, and rustdoc.
 
+## Documentation residual cleanup (Unreleased)
+
+- [x] Repair the stale `BrandedAtomic` source link in `README.md` after the
+  atomic module hierarchy split.
+- [x] Evidence: repository search confirms no remaining `src/atomic.rs` link;
+  `git diff --check` passes.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent
