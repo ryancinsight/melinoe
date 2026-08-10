@@ -74,13 +74,14 @@ impl RetainDecision {
 
 /// Conditional `Cow` views over `[MelinoeCell<'brand, T>]`, gated by a read
 /// permit.
-pub trait CellCowExt<'brand, T: Clone> {
+pub trait CellCowExt<'brand, T> {
     /// Return a zero-copy borrowed `Cow`.
     ///
     /// This is the non-generic convenience form of
     /// `borrow_cow_with(permit, Borrowed)`.
     fn borrow_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
     where
+        T: Clone,
         P: ReadPermit<'brand> + 'a;
 
     /// Return an owned `Cow` by cloning the branded slice exactly once.
@@ -89,6 +90,7 @@ pub trait CellCowExt<'brand, T: Clone> {
     /// `borrow_cow_with(permit, Retained)`.
     fn retain_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
     where
+        T: Clone,
         P: ReadPermit<'brand> + 'a;
 
     /// Return a `Cow` according to the compile-time ZST policy `C`.
@@ -97,19 +99,22 @@ pub trait CellCowExt<'brand, T: Clone> {
     /// once into the returned owned buffer.
     fn borrow_cow_with<'a, P, C>(&'a self, permit: P, policy: C) -> Cow<'a, [T]>
     where
+        T: Clone,
         P: ReadPermit<'brand> + 'a,
         C: CowPolicy;
 
     /// Return a `Cow` according to a runtime retain decision.
     fn borrow_cow_if<'a, P>(&'a self, permit: P, decision: RetainDecision) -> Cow<'a, [T]>
     where
+        T: Clone,
         P: ReadPermit<'brand> + 'a;
 }
 
-impl<'brand, T: Clone> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
+impl<'brand, T> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
     #[inline]
     fn borrow_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
     where
+        T: Clone,
         P: ReadPermit<'brand> + 'a,
     {
         Borrowed::cow(self.borrow_slice(permit))
@@ -118,6 +123,7 @@ impl<'brand, T: Clone> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
     #[inline]
     fn retain_cow<'a, P>(&'a self, permit: P) -> Cow<'a, [T]>
     where
+        T: Clone,
         P: ReadPermit<'brand> + 'a,
     {
         Retained::cow(self.borrow_slice(permit))
@@ -126,6 +132,7 @@ impl<'brand, T: Clone> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
     #[inline]
     fn borrow_cow_with<'a, P, C>(&'a self, permit: P, _policy: C) -> Cow<'a, [T]>
     where
+        T: Clone,
         P: ReadPermit<'brand> + 'a,
         C: CowPolicy,
     {
@@ -136,6 +143,7 @@ impl<'brand, T: Clone> CellCowExt<'brand, T> for [MelinoeCell<'brand, T>] {
     #[inline]
     fn borrow_cow_if<'a, P>(&'a self, permit: P, decision: RetainDecision) -> Cow<'a, [T]>
     where
+        T: Clone,
         P: ReadPermit<'brand> + 'a,
     {
         let slice = self.borrow_slice(permit);

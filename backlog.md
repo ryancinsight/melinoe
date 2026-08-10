@@ -52,6 +52,13 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   80/80, strict Clippy for both feature surfaces, 31 doctests, rustdoc,
   rustfmt, offline check, and diff checks.
 
+- [x] [minor] Move `CellCowExt`'s `Clone` requirement from the public trait
+  boundary to the four methods that construct `Cow` values. Non-`Clone`
+  branded cells can now satisfy the capability boundary while clone-dependent
+  operations retain explicit method bounds. Evidence: all-feature Nextest
+  127/127, alloc-only Nextest 81/81, strict Clippy for both feature surfaces,
+  31 doctests, rustdoc, offline check, rustfmt, and diff checks.
+
 - [x] [patch] Harden registered partition panic recovery against mutex poisoning.
   `sync::scoped::partition::driver_core` now recovers the first captured panic
   payload with `PoisonError::into_inner` both when task wrappers report a panic

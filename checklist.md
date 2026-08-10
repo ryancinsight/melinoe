@@ -65,6 +65,17 @@ Target version: 0.9.0
   all-target/all-feature and alloc-only Clippy, 31 doctests, rustdoc, offline
   check, rustfmt, and diff checks. The largest leaf is 157 lines.
 
+## Cow trait genericity cleanup (Unreleased)
+
+- [x] Remove the trait-level `T: Clone` bound from `CellCowExt`.
+- [x] Keep `T: Clone` on every Cow-producing method and its implementation.
+- [x] Add a non-`Clone` trait-bound compile regression.
+- [x] Evidence: all-feature Nextest 127/127, alloc-only Nextest 81/81,
+  strict Clippy for both feature surfaces, 31 doctests, rustdoc, offline
+  check, rustfmt, and diff checks. `cargo semver-checks` remains blocked by
+  the peer-owned manifest's simultaneous path and registry `melinoe@0.9.0`
+  specifications.
+
 ## Current micro-sprint (0.9.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with a transparent
