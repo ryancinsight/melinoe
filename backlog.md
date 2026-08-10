@@ -82,6 +82,11 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   checks all pass. Implementation scope is one provider-local source file;
   no consumer or peer-owned files changed.
 
+- [ ] [patch] (in progress, owner=codex) Move segmented `Cow` assembly into
+  the existing `cell::cow` policy owner. Keep `BrandedVecDeque` as a consumer
+  of the sealed `CowPolicy` seam, preserve contiguous zero-copy and wrapped
+  owned behavior, and avoid changing public APIs or peer-owned files.
+
 - [x] [patch] Publish future releases through a pinned GitHub Actions workflow
   using crates.io OIDC Trusted Publishing and no stored registry credential.
 - No Melinoe-local item remains in progress; the 0.9.0 executor capability is
