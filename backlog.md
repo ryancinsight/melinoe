@@ -91,6 +91,17 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 - [x] [patch] Publish future releases through a pinned GitHub Actions workflow
   using crates.io OIDC Trusted Publishing and no stored registry credential.
+
+- [ ] [patch] Fix executor-state test interference in `tests/partition.rs`.
+  Under a parallel `cargo test --all-features --test partition` the same two
+  tests fail deterministically — `clearing_registered_executor_restores_default_driver`
+  and `registered_executor_drives_partition_map` — as an assertion under one
+  guard-protected test while a non-guard test mutates the shared registered
+  executor; the failed guard then poisons `EXECUTOR_TEST_LOCK` and the
+  `PoisonError` cascades into the second. Serial (`--test-threads=1`) passes
+  17/17. Pre-existing on `origin/main` (file identical to main); unrelated to
+  the book/`mdbook-test` change.
+
 - No Melinoe-local item remains in progress; the 0.9.0 executor capability is
   ready for upstream publication and downstream Moirai lock refresh.
 
