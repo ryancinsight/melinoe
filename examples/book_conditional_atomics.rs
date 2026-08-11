@@ -9,6 +9,8 @@
 //! the call site so the ordering is embedded in the instruction selection, not
 //! passed as a runtime `Ordering` argument.
 
+extern crate melinoe;
+
 use core::sync::atomic::AtomicU64;
 use melinoe::{brand_scope, AcqRel, BrandedAtomic, Relaxed};
 
