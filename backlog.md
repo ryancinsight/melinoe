@@ -13,6 +13,18 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
+- [x] [patch] Take over and correct the stale uncommitted `atlas-themis` WIP in
+  `Cargo.toml`, `CHANGELOG.md`, and `src/sync/scoped/partition/plan.rs` (last
+  touched 11:35; untouched by eight subsequent commits; no board claim). The
+  WIP added `themis-topology` as an optional reverse dependency routing
+  `PartitionPlan::AvailableParallelism` through `themis::CpuTopology::detect()`,
+  contradicting this board's recorded decision (below: "not a reverse
+  dependency"). Restored the architecture-conforming state: `plan.rs`
+  documents the `PartitionPlan::parts` handoff for richer topology providers
+  and uses `std::thread::available_parallelism()`; the feature and dependency
+  are removed. Themis-derived worker counts enter through `PartitionPlan::parts`
+  from a caller above Melinoe, never as an upward dependency edge.
+
 - [x] [minor] Add generic branded-vector generation through
   `BrandedVec::from_fn` and `collections::with_generated`. The fresh
   higher-ranked brand remains inside the callback while its result escapes;
