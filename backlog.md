@@ -92,15 +92,24 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 - [x] [patch] Publish future releases through a pinned GitHub Actions workflow
   using crates.io OIDC Trusted Publishing and no stored registry credential.
 
-- [ ] [patch] Fix executor-state test interference in `tests/partition.rs`.
-  Under a parallel `cargo test --all-features --test partition` the same two
-  tests fail deterministically — `clearing_registered_executor_restores_default_driver`
-  and `registered_executor_drives_partition_map` — as an assertion under one
-  guard-protected test while a non-guard test mutates the shared registered
-  executor; the failed guard then poisons `EXECUTOR_TEST_LOCK` and the
-  `PoisonError` cascades into the second. Serial (`--test-threads=1`) passes
-  17/17. Pre-existing on `origin/main` (file identical to main); unrelated to
-  the book/`mdbook-test` change.
+- [x] [patch] Fix executor-state test interference in `tests/partition.rs`.
+  The executor registry is process-global, so `register_parallel_executor`/
+  `clear` windows leaked into concurrently running unsynchronized tests: a
+  non-guard test could observe a registered deterministic executor mid-flight,
+  overwrite the shared `EXECUTED_TASKS` side-channel, break a guard test's
+  driver assertions, and the failed guard's unwind then poisoned
+  `EXECUTOR_TEST_LOCK` and cascaded into the next guard test. Fix: every test
+  that touches the driver — all partition read/write tests in the module plus
+  the proptests, not just the registration tests — acquires `ExecutorTestGuard`
+  (moved to file scope so the proptests can see it), which both serializes
+  registration windows and guarantees a clean registry baseline; the guard
+  additionally recovers a poisoned lock (`PoisonError::into_inner`) so one
+  genuine failure never cascades. Tests still exercise real concurrency inside
+  their own partition calls. Evidence (2026-08-11): all-feature Nextest
+  127/127, no-default-features Nextest 52/52, doctests 31/31, strict Clippy on
+  both feature surfaces, rustfmt, and 8/8 repeated parallel partition-suite
+  runs. Pre-existing on `origin/main`; unrelated to the book/`mdbook-test`
+  change.
 
 - No Melinoe-local item remains in progress; the 0.9.0 executor capability is
   ready for upstream publication and downstream Moirai lock refresh.
