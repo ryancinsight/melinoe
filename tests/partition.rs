@@ -3,6 +3,37 @@
 use melinoe::region::WriterShard;
 use melinoe::{brand_scope, MelinoeCell};
 
+/// The executor registry is process-global: every test that calls a partition
+/// driver must hold the guard, both to serialize registration windows and to
+/// guarantee a clean registry baseline. A guard dropped during a test's unwind
+/// poisons the lock; later tests recover it so one genuine failure never
+/// cascades spurious failures into its neighbors.
+#[cfg(feature = "std")]
+static EXECUTOR_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(feature = "std")]
+struct ExecutorTestGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+#[cfg(feature = "std")]
+impl ExecutorTestGuard {
+    fn acquire() -> Self {
+        let lock = EXECUTOR_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        melinoe::sync::clear_parallel_executor();
+        Self { _lock: lock }
+    }
+}
+
+#[cfg(feature = "std")]
+impl Drop for ExecutorTestGuard {
+    fn drop(&mut self) {
+        melinoe::sync::clear_parallel_executor();
+    }
+}
+
 /// Single-threaded split: two disjoint shards write their halves; the whole
 /// region reads back correctly via the token afterwards.
 #[test]
@@ -121,6 +152,16 @@ fn shard_into_iterator() {
 
 #[cfg(feature = "std")]
 mod concurrent {
+    //! Driver concurrency tests. `register_parallel_executor`/`clear` mutate
+    //! process-global state that every partition call reads, so EVERY test in
+    //! this module that touches the driver acquires `ExecutorTestGuard` — never
+    //! just the registration tests. Without that, an unsynchronized concurrent
+    //! test can observe a registered executor mid-flight, dirties the shared
+    //! `EXECUTED_TASKS` side-channel, and breaks the guard tests' driver
+    //! assertions; the guard then poisons the lock and cascades into the next
+    //! guard test. Serialization costs nothing here: each test still exercises
+    //! real concurrency inside its own partition calls.
+
     use super::*;
     use melinoe::sync::{
         clear_parallel_executor, partition_for_each, partition_for_each_available,
@@ -128,30 +169,8 @@ mod concurrent {
         register_parallel_executor, ParallelExecutor, PartitionPlan,
     };
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::{Mutex, MutexGuard};
 
     static EXECUTED_TASKS: AtomicUsize = AtomicUsize::new(0);
-    static EXECUTOR_TEST_LOCK: Mutex<()> = Mutex::new(());
-
-    struct ExecutorTestGuard {
-        _lock: MutexGuard<'static, ()>,
-    }
-
-    impl ExecutorTestGuard {
-        fn acquire() -> Self {
-            let lock = EXECUTOR_TEST_LOCK
-                .lock()
-                .expect("invariant: executor-state tests do not poison their lock");
-            clear_parallel_executor();
-            Self { _lock: lock }
-        }
-    }
-
-    impl Drop for ExecutorTestGuard {
-        fn drop(&mut self) {
-            clear_parallel_executor();
-        }
-    }
 
     unsafe fn deterministic_executor(
         num_tasks: usize,
@@ -177,6 +196,7 @@ mod concurrent {
     /// the joined region equals the identity mapping.
     #[test]
     fn concurrent_disjoint_writes_fill_region() {
+        let _guard = ExecutorTestGuard::acquire();
         const N: usize = 10_000;
         brand_scope(|token| {
             let mut cells: Vec<MelinoeCell<'_, usize>> =
@@ -200,6 +220,7 @@ mod concurrent {
     /// shards exactly tile the region.
     #[test]
     fn partition_map_returns_ordered_results() {
+        let _guard = ExecutorTestGuard::acquire();
         const N: usize = 1_000;
         brand_scope(|_token| {
             let mut cells: Vec<MelinoeCell<'_, u64>> =
@@ -279,6 +300,7 @@ mod concurrent {
     /// Empty regions spawn no shards and therefore never invoke the worker.
     #[test]
     fn partition_map_empty_region_returns_empty_results() {
+        let _guard = ExecutorTestGuard::acquire();
         brand_scope(|_token| {
             let mut cells: Vec<MelinoeCell<'_, u64>> = Vec::new();
 
@@ -294,6 +316,7 @@ mod concurrent {
     /// shards, in order, with exact full coverage.
     #[test]
     fn partition_map_overpartitioning_produces_no_empty_shards() {
+        let _guard = ExecutorTestGuard::acquire();
         const N: usize = 5;
         brand_scope(|token| {
             let mut cells: Vec<MelinoeCell<'_, usize>> =
@@ -318,6 +341,7 @@ mod concurrent {
     /// while making the scheduling policy explicit at the call site.
     #[test]
     fn partition_map_with_fixed_parts_matches_legacy_partition_map() {
+        let _guard = ExecutorTestGuard::acquire();
         const N: usize = 33;
         let fill = |v: usize| v.wrapping_mul(11).wrapping_add(5);
 
@@ -351,6 +375,7 @@ mod concurrent {
     /// Chunk-size plans expose cache/tile-oriented scheduling directly.
     #[test]
     fn partition_map_with_chunk_size_tiles_region() {
+        let _guard = ExecutorTestGuard::acquire();
         const N: usize = 10;
         brand_scope(|token| {
             let mut cells: Vec<MelinoeCell<'_, usize>> =
@@ -378,6 +403,7 @@ mod concurrent {
     /// the platform's reported CPU count.
     #[test]
     fn available_parallelism_plan_covers_region_once() {
+        let _guard = ExecutorTestGuard::acquire();
         const N: usize = 257;
         brand_scope(|token| {
             let mut cells: Vec<MelinoeCell<'_, usize>> =
@@ -415,6 +441,7 @@ mod concurrent {
     /// wrapper over the same shard plan.
     #[test]
     fn partition_for_each_available_writes_region() {
+        let _guard = ExecutorTestGuard::acquire();
         const N: usize = 64;
         brand_scope(|token| {
             let mut cells: Vec<MelinoeCell<'_, usize>> =
@@ -436,6 +463,7 @@ mod concurrent {
     /// to a single-threaded sequential fill.
     #[test]
     fn concurrent_matches_sequential() {
+        let _guard = ExecutorTestGuard::acquire();
         const N: usize = 4_096;
         let fill = |v: usize| (v * 7 + 3) % 251;
 
@@ -460,6 +488,7 @@ mod concurrent {
 
     #[test]
     fn read_partition_map_with_delegates_to_driver() {
+        let _guard = ExecutorTestGuard::acquire();
         let values: Vec<usize> = (0..16).collect();
         let sums = melinoe::sync::partition_read_map_with(
             &values,
@@ -472,6 +501,7 @@ mod concurrent {
     #[test]
     fn read_partition_for_each_with_delegates_to_driver() {
         use std::sync::atomic::{AtomicUsize, Ordering};
+        let _guard = ExecutorTestGuard::acquire();
         let values: Vec<usize> = (0..16).collect();
         let sum = AtomicUsize::new(0);
         melinoe::sync::partition_read_for_each_with(
@@ -487,6 +517,7 @@ mod concurrent {
     #[test]
     fn custom_executor_panic_safety_drops_success_elements() {
         use std::sync::atomic::{AtomicUsize, Ordering};
+        let _guard = ExecutorTestGuard::acquire();
 
         static DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
         DROP_COUNT.store(0, Ordering::SeqCst);
@@ -523,6 +554,7 @@ mod concurrent {
     #[test]
     fn read_custom_executor_panic_safety_drops_success_elements() {
         use std::sync::atomic::{AtomicUsize, Ordering};
+        let _guard = ExecutorTestGuard::acquire();
 
         static DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
         DROP_COUNT.store(0, Ordering::SeqCst);
@@ -585,6 +617,7 @@ proptest::proptest! {
         n in 1usize..256,
         raw_parts in 1usize..32,
     ) {
+        let _guard = ExecutorTestGuard::acquire();
         let parts = raw_parts.min(n);
         brand_scope(|token| {
             let mut cells: Vec<MelinoeCell<'_, u64>> =
@@ -620,6 +653,7 @@ proptest::proptest! {
         raw_parts in 1usize..32,
     ) {
         use std::sync::atomic::{AtomicUsize, Ordering};
+        let _guard = ExecutorTestGuard::acquire();
         let parts = raw_parts.min(n.max(1));
         let data: Vec<usize> = (0..n).collect();
         let covered = AtomicUsize::new(0);
@@ -646,6 +680,7 @@ proptest::proptest! {
         n in 1usize..256,
         raw_parts in 1usize..32,
     ) {
+        let _guard = ExecutorTestGuard::acquire();
         let parts = raw_parts.min(n);
         let data: Vec<u64> = (0..n as u64).collect();
         let sums: Vec<u64> =
