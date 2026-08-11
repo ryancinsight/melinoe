@@ -12,11 +12,12 @@ cargo bench --bench conditional_atomics  # BrandedAtomic exclusive/shared/mixed
 #   -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
 ```
 
-Halo collection migration harnesses live in the `halo` workspace crate:
+Branded-collection harnesses live in this crate (the former `halo` workspace
+member was consolidated into `melinoe` in 0.7.0):
 
 ```sh
-cargo bench -p halo --bench branded_vec
-cargo bench -p halo --bench branded_deque
+cargo bench --bench branded_vec
+cargo bench --bench branded_deque
 # faster, lower-confidence sweep:
 #   -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
 ```
