@@ -10,6 +10,11 @@ language = "en"
 build-dir = "../../target/book/melinoe"
 create-missing = false
 
+# `mdbook test` compiles fenced `rust` blocks as doctests; the edition must
+# match the crate so book samples parse exactly as the package does.
+[rust]
+edition = "2021"
+
 [output.html]
 no-section-label = false
 mathjax-support = false
