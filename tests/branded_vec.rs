@@ -86,12 +86,11 @@ fn slice_access_is_value_semantic_and_zero_copy() {
 #[test]
 fn element_access_uses_melinoe_permits() {
     brand_scope(|mut token| {
-        let values = BrandedVec::from_iter([1_i32, 2, 3]);
+        let values = [1_i32, 2, 3].into_iter().collect::<BrandedVec<_>>();
 
         {
-            let mut middle = match values.get_mut(1, &mut token) {
-                Some(value) => value,
-                None => panic!("index 1 must exist in a three-element vector"),
+            let Some(mut middle) = values.get_mut(1, &mut token) else {
+                panic!("index 1 must exist in a three-element vector")
             };
             *middle = 22;
         }
@@ -110,7 +109,7 @@ fn element_access_uses_melinoe_permits() {
 fn cow_policies_preserve_borrow_or_clone_contract() {
     brand_scope(|token| {
         let clones = Cell::new(0);
-        let values = BrandedVec::from_iter([
+        let values = [
             CountedClone {
                 value: 1,
                 clones: &clones,
@@ -119,7 +118,9 @@ fn cow_policies_preserve_borrow_or_clone_contract() {
                 value: 2,
                 clones: &clones,
             },
-        ]);
+        ]
+        .into_iter()
+        .collect::<BrandedVec<_>>();
 
         let borrowed = values.cow_with(&token, Borrowed);
         let borrowed_ptr = match &borrowed {
@@ -147,7 +148,7 @@ fn cow_policies_preserve_borrow_or_clone_contract() {
 #[test]
 fn into_boxed_cells_preserves_branded_storage() {
     brand_scope(|token| {
-        let values = BrandedVec::from_iter([5_u8, 8, 13]);
+        let values = [5_u8, 8, 13].into_iter().collect::<BrandedVec<_>>();
         let cells = values.into_boxed_cells();
         assert_eq!(cells.borrow_slice(&token), &[5, 8, 13]);
     });
@@ -156,7 +157,7 @@ fn into_boxed_cells_preserves_branded_storage() {
 #[test]
 fn into_vec_returns_owned_values() {
     brand_scope(|_token| {
-        let values = BrandedVec::from_iter([5_u8, 8, 13]);
+        let values = [5_u8, 8, 13].into_iter().collect::<BrandedVec<_>>();
         assert_eq!(values.into_vec(), [5, 8, 13]);
     });
 }
@@ -164,7 +165,7 @@ fn into_vec_returns_owned_values() {
 #[test]
 fn structural_vec_operations_preserve_owned_values() {
     brand_scope(|token| {
-        let mut values = BrandedVec::from_iter([1_i32, 2, 3]);
+        let mut values = [1_i32, 2, 3].into_iter().collect::<BrandedVec<_>>();
 
         values.insert(1, 10);
         values.swap(0, 2);
@@ -196,7 +197,7 @@ fn structural_vec_operations_preserve_owned_values() {
 #[test]
 fn partition_for_each_mut_writes_disjoint_shards() {
     brand_scope(|token| {
-        let mut values = BrandedVec::from_iter([0_usize; 8]);
+        let mut values = [0_usize; 8].into_iter().collect::<BrandedVec<_>>();
 
         values.partition_for_each_mut_with(PartitionPlan::chunk_size(2), |start, shard| {
             for (offset, value) in shard.iter_mut().enumerate() {
@@ -212,7 +213,9 @@ fn partition_for_each_mut_writes_disjoint_shards() {
 #[test]
 fn partition_map_mut_returns_partition_order_results() {
     brand_scope(|token| {
-        let mut values = BrandedVec::from_iter([1_usize, 1, 1, 1, 1, 1]);
+        let mut values = [1_usize, 1, 1, 1, 1, 1]
+            .into_iter()
+            .collect::<BrandedVec<_>>();
 
         let lengths =
             values.partition_map_mut_with(PartitionPlan::chunk_size(2), |start, shard| {
@@ -231,7 +234,7 @@ fn partition_map_mut_returns_partition_order_results() {
 #[test]
 fn partition_map_reads_shared_shards_in_order() {
     brand_scope(|token| {
-        let values = BrandedVec::from_iter(0_usize..10);
+        let values = (0_usize..10).collect::<BrandedVec<_>>();
 
         let sums =
             values.partition_map_with(&token, PartitionPlan::chunk_size(4), |start, shard| {
@@ -253,7 +256,9 @@ fn partition_for_each_reads_all_shared_shards() {
     VISITED.store(0, Ordering::SeqCst);
 
     brand_scope(|token| {
-        let values = BrandedVec::from_iter([1_usize, 2, 3, 4, 5, 6]);
+        let values = [1_usize, 2, 3, 4, 5, 6]
+            .into_iter()
+            .collect::<BrandedVec<_>>();
 
         values.partition_for_each_with(&token, PartitionPlan::chunk_size(2), |_start, shard| {
             VISITED.fetch_add(shard.iter().sum::<usize>(), Ordering::SeqCst);
@@ -267,7 +272,7 @@ fn partition_for_each_reads_all_shared_shards() {
 #[test]
 fn new_vec_apis_drain_split_off_append() {
     brand_scope(|token| {
-        let mut values = BrandedVec::from_iter([1_i32, 2, 3, 4, 5]);
+        let mut values = [1_i32, 2, 3, 4, 5].into_iter().collect::<BrandedVec<_>>();
 
         // test drain
         {
@@ -311,7 +316,7 @@ fn test_zero_copy_conversions_preserve_buffer_pointer() {
 #[test]
 fn test_branded_vec_clone_with() {
     brand_scope(|token| {
-        let values = BrandedVec::from_iter([10_i32, 20, 30]);
+        let values = [10_i32, 20, 30].into_iter().collect::<BrandedVec<_>>();
         let cloned = values.clone_with(&token);
         assert_eq!(cloned.len(), 3);
         assert_eq!(cloned.as_slice(&token), &[10, 20, 30]);

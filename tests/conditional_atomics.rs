@@ -116,7 +116,7 @@ fn raw_atomic_views_are_zero_copy_and_value_preserving() {
         assert_eq!(raw.load(Ordering::Relaxed), 7);
         assert_eq!(
             raw as *const AtomicU64 as usize,
-            &branded as *const _ as usize
+            core::ptr::addr_of!(branded) as usize
         );
         raw.store(11, Ordering::Relaxed);
         assert_eq!(branded.load(snap, Ordering::Relaxed), 11);

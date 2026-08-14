@@ -21,8 +21,8 @@ fn ref_map_projects_to_field_value() {
         // Projection is over the same allocation: the field address lies inside
         // the cell's storage (no copy was made).
         let base = cell.borrow(&token);
-        let base_ptr = (&*base as *const Header) as usize;
-        let field_ptr = (&*len as *const u32) as usize;
+        let base_ptr = core::ptr::addr_of!(*base) as usize;
+        let field_ptr = core::ptr::addr_of!(*len) as usize;
         assert!(field_ptr >= base_ptr && field_ptr < base_ptr + core::mem::size_of::<Header>());
     });
 }

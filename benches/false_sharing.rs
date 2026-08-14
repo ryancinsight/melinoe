@@ -77,7 +77,7 @@ fn bench(c: &mut Criterion) {
         let data = &data;
         b.iter(|| {
             thread::scope(|s| {
-                for counter in data.iter() {
+                for counter in data {
                     s.spawn(move || {
                         for _ in 0..ITERS {
                             counter.fetch_add(black_box(1), Ordering::Relaxed);
@@ -94,7 +94,7 @@ fn bench(c: &mut Criterion) {
         let data = &data;
         b.iter(|| {
             thread::scope(|s| {
-                for counter in data.iter() {
+                for counter in data {
                     s.spawn(move || {
                         for _ in 0..ITERS {
                             counter.0.fetch_add(black_box(1), Ordering::Relaxed);

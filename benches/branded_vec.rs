@@ -16,7 +16,7 @@ fn branded_slice_sum(c: &mut Criterion) {
     c.bench_function("branded_vec/slice_sum_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
-                let values = BrandedVec::from_iter(0_u64..4096);
+                let values = (0_u64..4096).collect::<BrandedVec<_>>();
                 let sum = values
                     .as_slice(&token)
                     .iter()
@@ -33,7 +33,7 @@ fn branded_partition_fill(c: &mut Criterion) {
     c.bench_function("branded_vec/partition_fill_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
-                let mut values = BrandedVec::from_iter(0_u64..4096);
+                let mut values = (0_u64..4096).collect::<BrandedVec<_>>();
                 values.partition_for_each_mut_with(
                     PartitionPlan::chunk_size(512),
                     |start, shard| {
@@ -53,7 +53,7 @@ fn branded_partition_sum(c: &mut Criterion) {
     c.bench_function("branded_vec/partition_sum_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
-                let values = BrandedVec::from_iter(0_u64..4096);
+                let values = (0_u64..4096).collect::<BrandedVec<_>>();
                 let sums = values.partition_map_with(
                     &token,
                     PartitionPlan::chunk_size(512),

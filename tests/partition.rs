@@ -68,7 +68,7 @@ fn chunks_cover_region_without_overlap() {
         let mut total = 0;
         for (chunk_idx, mut shard) in WriterShard::new(&mut cells).chunks(3).enumerate() {
             total += shard.len();
-            for slot in shard.iter_mut() {
+            for slot in &mut shard {
                 *slot = chunk_idx;
             }
         }
@@ -539,9 +539,7 @@ mod concurrent {
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             partition_map_with(&mut cells, PartitionPlan::chunk_size(1), |index, _shard| {
-                if index == 2 {
-                    panic!("Task 2 failed");
-                }
+                assert!(index != 2, "Task 2 failed");
                 DropItem
             });
         }));
@@ -579,9 +577,7 @@ mod concurrent {
                 &values,
                 PartitionPlan::chunk_size(1),
                 |index, _shard| {
-                    if index == 2 {
-                        panic!("Task 2 failed");
-                    }
+                    assert!(index != 2, "Task 2 failed");
                     DropItem
                 },
             );

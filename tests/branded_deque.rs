@@ -63,9 +63,8 @@ fn element_access_uses_melinoe_permits() {
         deque.push_back(3);
 
         {
-            let mut middle = match deque.get_mut(1, &mut token) {
-                Some(val) => val,
-                None => panic!("index 1 must exist"),
+            let Some(mut middle) = deque.get_mut(1, &mut token) else {
+                panic!("index 1 must exist")
             };
             *middle = 20;
         }
@@ -122,7 +121,9 @@ fn split_slice_access_supports_mutations_under_write_permit() {
 #[test]
 fn structural_vecdeque_operations() {
     brand_scope(|token| {
-        let mut deque = BrandedVecDeque::from_iter([100_i32, 200, 300]);
+        let mut deque = [100_i32, 200, 300]
+            .into_iter()
+            .collect::<BrandedVecDeque<_>>();
         assert_eq!(deque.len(), 3);
         assert!(deque.capacity() >= 3);
 
@@ -146,7 +147,9 @@ fn structural_vecdeque_operations() {
 #[test]
 fn new_deque_apis_drain_split_off_append_retain_mut_extend() {
     brand_scope(|token| {
-        let mut deque = BrandedVecDeque::from_iter([1_i32, 2, 3, 4, 5]);
+        let mut deque = [1_i32, 2, 3, 4, 5]
+            .into_iter()
+            .collect::<BrandedVecDeque<_>>();
 
         // test drain
         {
@@ -295,7 +298,7 @@ fn partition_map_uses_one_logical_plan_for_contiguous_deque() {
     use melinoe::sync::PartitionPlan;
 
     brand_scope(|token| {
-        let deque = BrandedVecDeque::from_iter(0_usize..6);
+        let deque = (0_usize..6).collect::<BrandedVecDeque<_>>();
         let (front, back) = deque.as_slices(&token);
         assert_eq!(front, &[0, 1, 2, 3, 4, 5]);
         assert_eq!(back, &[]);
@@ -378,7 +381,9 @@ fn contiguous_cow_borrows_preserve_pointer_identity_and_retained_cow_owns() {
     use alloc::borrow::Cow;
 
     brand_scope(|token| {
-        let deque = BrandedVecDeque::from_iter([11_i32, 13, 17, 19]);
+        let deque = [11_i32, 13, 17, 19]
+            .into_iter()
+            .collect::<BrandedVecDeque<_>>();
         let (front, back) = deque.as_slices(&token);
         assert_eq!(front, &[11, 13, 17, 19]);
         assert_eq!(back, &[]);
@@ -570,7 +575,7 @@ fn partition_map_mut_uses_one_logical_plan_for_contiguous_deque() {
     use melinoe::sync::PartitionPlan;
 
     brand_scope(|token| {
-        let mut deque = BrandedVecDeque::from_iter([1_usize; 6]);
+        let mut deque = [1_usize; 6].into_iter().collect::<BrandedVecDeque<_>>();
 
         let lengths = deque.partition_map_mut_with(PartitionPlan::parts(2), |start, shard| {
             for (offset, value) in shard.iter_mut().enumerate() {

@@ -9,6 +9,11 @@
 //! the call site so the ordering is embedded in the instruction selection, not
 //! passed as a runtime `Ordering` argument.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "book example: stdout is the demonstrated output"
+)]
+
 extern crate melinoe;
 
 use core::sync::atomic::AtomicU64;

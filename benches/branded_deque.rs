@@ -30,7 +30,7 @@ fn branded_contiguous_slice_sum(c: &mut Criterion) {
     c.bench_function("branded_deque/contiguous_slice_sum_4096", |b| {
         b.iter(|| {
             brand_scope(|token| {
-                let values = BrandedVecDeque::from_iter(0_u64..4096);
+                let values = (0_u64..4096).collect::<BrandedVecDeque<_>>();
                 let (front, back) = values.as_slices(&token);
                 let sum = front
                     .iter()

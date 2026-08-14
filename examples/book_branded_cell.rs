@@ -8,6 +8,11 @@
 //! [`MelinoeMut::map_split`] projects one write permit onto two disjoint
 //! fields, so both fields can be mutated in the same expression.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "book example: stdout is the demonstrated output"
+)]
+
 extern crate melinoe;
 
 use melinoe::{brand_scope, MelinoeCell, MelinoeMut};

@@ -106,10 +106,10 @@ fn par_chunks_disjoint_indices_do_not_alias() {
             // once, so their `[0,2)` and `[4,6)` ranges do not overlap.
             let mut a = unsafe { par.get_unchecked_chunk(0) };
             let mut b = unsafe { par.get_unchecked_chunk(2) };
-            for slot in a.iter_mut() {
+            for slot in &mut a {
                 *slot = 7;
             }
-            for slot in b.iter_mut() {
+            for slot in &mut b {
                 *slot = 9;
             }
         }
@@ -137,7 +137,7 @@ fn par_chunks_single_partition_is_whole_region() {
             // SAFETY: index 0 is the only partition and is requested once.
             let mut shard = unsafe { par.get_unchecked_chunk(0) };
             assert_eq!(shard.as_slice(), &[0, 1, 2]);
-            for slot in shard.iter_mut() {
+            for slot in &mut shard {
                 *slot += 100;
             }
         }

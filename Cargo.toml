@@ -60,41 +60,52 @@ required-features = ["std"]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[lints.rust]
+[lints]
+workspace = true
+
+[workspace.lints.rust]
 missing_docs = "deny"
 unsafe_op_in_unsafe_fn = "deny"
 
-# Stack lint floor. New and touched code meets it in full; the `allow` entries
-# are a curated, non-increasing baseline for classes that fire broadly across
-# the existing tree, each recorded with its measured hit count at the revision
-# the floor was established. Removing an entry (or shrinking its count) is
-# burn-down work. Anything not listed is a hard error.
-[lints.clippy]
-all = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-# Melinoe is a soundness crate: an input-dependent `unwrap` panics inside every
-# consumer's process. Zero production sites; test and bench targets carry a
-# scoped file-level allow, since a panic there is the assertion.
-unwrap_used = "deny"
+[workspace.lints.clippy]
+pedantic = { level = "deny", priority = -1 }
 
-# --- Curated baseline (hit counts measured 2026-08-14, --all-targets) ---
-# `'brand` is this crate's central concept — the invariant lifetime that carries
+# Pedantic floor ratchet: every class listed below already fires in this
+# workspace and is allowed at its measured baseline; every class NOT listed
+# is a hard error. Counts are `cargo clippy --all-targets` hits at the time
+# the floor was established (total / production, production excluding
+# `#[cfg(test)]` modules and test, bench and example targets). Burn a class
+# down to zero, then delete its line -- the floor tightens, never loosens.
+#
+# Classes with few enough sites to fix outright were fixed, not listed:
+# manual_assert, manual_let_else, borrow_as_ptr, from_iter_instead_of_collect
+# and explicit_iter_loop are all denied with zero remaining sites.
+
+# --- Lifetime naming (50 sites, 50 in production) ---
+# `'brand` is this crate's central concept -- the invariant lifetime carrying
 # the capability proof. Eliding it to `'_` in impl headers would erase the one
 # name a reader most needs, so the explicit binding is deliberate throughout.
-elidable_lifetime_names = "allow"     # 50
-# examples/codegen.rs is a codegen probe: `#[no_mangle]` exists precisely to pin
-# symbols so the emitted assembly can be inspected for zero-cost claims.
-no_mangle_with_rust_abi = "allow"     # 12  (examples/codegen.rs)
-# Test and bench scaffolding: index/size arithmetic over fixture-sized data.
-cast_possible_truncation = "allow"    # 13  (tests, benches)
-cast_possible_wrap = "allow"          # 5   (tests, benches)
-items_after_statements = "allow"      # 14  (tests/partition.rs)
-explicit_iter_loop = "allow"          # 6   (tests, benches)
-from_iter_instead_of_collect = "allow" # 5  (tests, benches)
-manual_assert = "allow"               # 2   (tests/partition.rs)
-manual_let_else = "allow"             # 2   (tests)
-too_many_lines = "allow"              # 1   (benches/concurrent_reads.rs)
-borrow_as_ptr = "allow"               # 3   (tests)
+elidable_lifetime_names = "allow" # 50 (50 prod)
+
+# --- Codegen probe (12 sites, 0 in production) ---
+# examples/codegen.rs pins symbols with `#[no_mangle]` precisely so the emitted
+# assembly can be inspected for the zero-cost claims.
+no_mangle_with_rust_abi = "allow" # 12 (0 prod)
+
+# --- Test/bench scaffolding debt (32 sites, 0 in production) ---
+items_after_statements = "allow" # 14 (0 prod)
+cast_possible_truncation = "allow" # 13 (0 prod)
+cast_possible_wrap = "allow" # 5 (0 prod)
+too_many_lines = "allow" # 1 (0 prod)
+
+# --- Restriction floor ---
+# Melinoe is a soundness crate: an input-dependent `unwrap` panics inside every
+# consumer's process. Denied outright with no ratchet -- zero production sites.
+unwrap_used = "deny"
+# A library never writes to the process's stdio; output belongs to the caller.
+print_stdout = "deny"
+print_stderr = "deny"
+dbg_macro = "deny"
 
 [[bench]]
 name = "false_sharing"
