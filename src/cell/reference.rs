@@ -72,6 +72,10 @@ impl<'a, 'brand, T: ?Sized> MelinoeRef<'a, 'brand, T> {
     /// });
     /// ```
     #[inline]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "std `Ref::map`/`map_split` parity: consuming the guard is the contract"
+    )]
     pub fn map<U: ?Sized, F>(orig: Self, f: F) -> MelinoeRef<'a, 'brand, U>
     where
         F: FnOnce(&'a T) -> &'a U,
@@ -89,6 +93,10 @@ impl<'a, 'brand, T: ?Sized> MelinoeRef<'a, 'brand, T> {
     /// sub-guards share the original `'a` read window, so neither can outlive the
     /// permit and no write of the brand can intervene while either is live.
     #[inline]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "std `Ref::map`/`map_split` parity: consuming the guard is the contract"
+    )]
     pub fn map_split<U: ?Sized, V: ?Sized, F>(
         orig: Self,
         f: F,
@@ -178,6 +186,10 @@ impl<'a, 'brand, T: ?Sized> MelinoeMut<'a, 'brand, T> {
     /// });
     /// ```
     #[inline]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "std `Ref::map`/`map_split` parity: consuming the guard is the contract"
+    )]
     pub fn map<U: ?Sized, F>(orig: Self, f: F) -> MelinoeMut<'a, 'brand, U>
     where
         F: FnOnce(&'a mut T) -> &'a mut U,
@@ -198,6 +210,10 @@ impl<'a, 'brand, T: ?Sized> MelinoeMut<'a, 'brand, T> {
     /// what makes the two simultaneous `&mut` projections sound; both inherit the
     /// brand and the original exclusive window.
     #[inline]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "std `Ref::map`/`map_split` parity: consuming the guard is the contract"
+    )]
     pub fn map_split<U: ?Sized, V: ?Sized, F>(
         orig: Self,
         f: F,

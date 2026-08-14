@@ -1,6 +1,8 @@
 # ADR 0001: Parallel executor capability
 
-Status: accepted. Target: 0.9.0. Change class: major.
+Status: Accepted
+
+Change class: [major]. Delivered in 0.9.0.
 
 ## Context
 

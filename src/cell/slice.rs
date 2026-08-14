@@ -50,7 +50,7 @@ impl<'brand, T> CellSliceExt<'brand, T> for [MelinoeCell<'brand, T>] {
         // SAFETY: a live `ReadPermit<'brand>` proves (via the borrow checker on
         // the brand's unique token) that no `&mut` view of this brand exists for
         // `'a`, so forming `&[T]` over the region cannot alias a `&mut T`.
-        unsafe { &*(cell.get() as *const [T]) }
+        unsafe { &*cell.get().cast_const() }
     }
 
     // The `&self -> &mut [T]` shape is the intended interior-mutability pattern:

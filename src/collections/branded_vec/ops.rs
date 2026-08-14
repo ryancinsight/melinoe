@@ -126,7 +126,7 @@ impl<'brand, T> BrandedVec<'brand, T> {
         // allocation exactly once and preserves length and capacity.
         unsafe {
             let mut cells = core::mem::ManuallyDrop::new(self.cells);
-            let ptr = cells.as_mut_ptr() as *mut T;
+            let ptr = cells.as_mut_ptr().cast::<T>();
             Vec::from_raw_parts(ptr, cells.len(), cells.capacity())
         }
     }

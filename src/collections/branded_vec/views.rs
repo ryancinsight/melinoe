@@ -83,7 +83,7 @@ impl<'brand, T> BrandedVec<'brand, T> {
         T: Clone,
         P: ReadPermit<'brand> + 'a,
     {
-        Self::from_iter(self.as_slice(permit).iter().cloned())
+        self.as_slice(permit).iter().cloned().collect::<Self>()
     }
 
     /// Return a `Cow` according to a runtime retain decision.

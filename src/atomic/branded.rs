@@ -44,7 +44,7 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
     pub fn from_mut(atomic: &mut A) -> &mut Self {
         // SAFETY: `Self` is `#[repr(transparent)]` over `A`; the unique `&mut A`
         // becomes a unique `&mut Self`, introducing no aliasing.
-        unsafe { &mut *(atomic as *mut A as *mut Self) }
+        unsafe { &mut *(atomic as *mut A).cast::<Self>() }
     }
 
     /// View the underlying atomic in the shared phase, gated by a read permit.
@@ -276,6 +276,11 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
     }
 
     /// Atomic fetch-update. Requires a [`ReadPermit`] for `'brand`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` with the last read value when `f` returns `None`, matching
+    /// the `core::sync::atomic` `fetch_update` contract.
     #[inline]
     pub fn fetch_update<P, F>(
         &self,
@@ -292,6 +297,11 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
     }
 
     /// Atomic fetch-update using a compile-time ZST ordering policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` with the last read value when `f` returns `None`, matching
+    /// the `core::sync::atomic` `fetch_update` contract.
     #[inline]
     pub fn fetch_update_with<P, O, F>(
         &self,

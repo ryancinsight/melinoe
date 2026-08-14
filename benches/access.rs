@@ -23,6 +23,9 @@
 //! `tests/differential.rs` confirms every primitive computes the same result, so
 //! the comparison is over identical work.
 
+// Test code is exempt from `clippy::unwrap_used`: a panic here is the
+// assertion, not a defect escaping into a consumer's process.
+#![allow(clippy::unwrap_used)]
 // The `criterion_group!` macro expands to an undocumented `benches` function;
 // the crate's `missing_docs = "deny"` lint does not apply to generated harness code.
 #![allow(missing_docs)]

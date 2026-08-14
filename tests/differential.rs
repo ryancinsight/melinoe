@@ -3,6 +3,9 @@
 //! over identical computations, not coincidentally-similar ones.
 
 #![cfg(feature = "std")]
+// Test code is exempt from `clippy::unwrap_used`: a panic here is the
+// assertion, not a defect escaping into a consumer's process.
+#![allow(clippy::unwrap_used)]
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, RwLock};

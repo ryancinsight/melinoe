@@ -1,6 +1,10 @@
 //! Multi-token integration tests: simultaneous disjoint exclusive access
 //! (multi-XOR by *nesting* `brand_scope`) and the ambient re-entrancy gates.
 
+// Test code is exempt from `clippy::unwrap_used`: a panic here is the
+// assertion, not a defect escaping into a consumer's process.
+#![allow(clippy::unwrap_used)]
+
 use melinoe::reentrant::{GuardedCell, Reentered, ReentrancyCell};
 use melinoe::{brand_scope, MelinoeCell};
 

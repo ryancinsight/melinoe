@@ -30,7 +30,16 @@
 //!    into two disjoint memory segments representing the contiguous logical sections.
 //! 2. Safety is preserved during casting inside [`BrandedVecDeque::as_mut_slices`] because
 //!    disjointness of $(S_1, S_2)$ guarantees that pointer transmutation does not introduce
-//!    overlapping `&mut [T]$ regions. $\blacksquare$
+//!    overlapping `&mut [T]` regions. $\blacksquare$
+
+// The module proof above is LaTeX: `$S_1$`/`$S_2$` are mathematical subscripts
+// and the surrounding math-mode markup is not Rust. `doc_markdown` cannot tell
+// them from unbackticked code paths, and backticking would break the rendered
+// math.
+#![expect(
+    clippy::doc_markdown,
+    reason = "LaTeX math in the module-level correctness proof, not code identifiers"
+)]
 
 pub mod iter;
 pub mod ops;
@@ -141,7 +150,7 @@ impl<'brand, T> From<VecDeque<T>> for BrandedVecDeque<'brand, T> {
         unsafe {
             let values = core::mem::ManuallyDrop::new(values);
             let cells = core::ptr::read(
-                &*values as *const VecDeque<T> as *const VecDeque<MelinoeCell<'brand, T>>,
+                core::ptr::addr_of!(*values).cast::<VecDeque<MelinoeCell<'brand, T>>>(),
             );
             Self { cells }
         }

@@ -109,9 +109,7 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
         // owner exactly once.
         unsafe {
             let cells = core::mem::ManuallyDrop::new(self.cells);
-            core::ptr::read(
-                &*cells as *const VecDeque<MelinoeCell<'brand, T>> as *const VecDeque<T>,
-            )
+            core::ptr::read(core::ptr::addr_of!(*cells).cast::<VecDeque<T>>())
         }
     }
 }

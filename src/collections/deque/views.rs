@@ -110,14 +110,14 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
     /// If the queue is contiguous, the decision is routed to the policy `C`.
     /// If the queue wraps around, it is always cloned into an owned vector.
     #[inline]
-    pub fn cow_with<'a, P, C>(&'a self, permit: P, _policy: C) -> Cow<'a, [T]>
+    pub fn cow_with<'a, P, C>(&'a self, permit: P, policy: C) -> Cow<'a, [T]>
     where
         T: Clone,
         P: ReadPermit<'brand> + 'a,
         C: CowPolicy,
     {
         let (s1, s2) = self.as_slices(permit);
-        cow_from_segments(s1, s2, _policy)
+        cow_from_segments(s1, s2, policy)
     }
 
     /// Clone the branded queue by presenting a read permit.

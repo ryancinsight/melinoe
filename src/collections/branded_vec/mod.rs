@@ -132,7 +132,7 @@ impl<'brand, T> From<Vec<T>> for BrandedVec<'brand, T> {
         // the vector allocation, and `ManuallyDrop` transfers its ownership once.
         unsafe {
             let mut values = core::mem::ManuallyDrop::new(values);
-            let ptr = values.as_mut_ptr() as *mut MelinoeCell<'brand, T>;
+            let ptr = values.as_mut_ptr().cast::<MelinoeCell<'brand, T>>();
             Self {
                 cells: Vec::from_raw_parts(ptr, values.len(), values.capacity()),
             }

@@ -6,4 +6,4 @@
 
 | ADR | Title | Status |
 | --- | ----- | ------ |
-| [0001](0001-parallel-executor-capability.md) | Parallel executor capability | accepted. |
+| [0001](0001-parallel-executor-capability.md) | Parallel executor capability | Accepted |

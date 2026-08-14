@@ -191,7 +191,7 @@ where
             executor.execute(
                 num_chunks,
                 task_wrapper::<R, Run>,
-                &mut ctx as *mut TaskContext<'_, R, Run> as *mut (),
+                core::ptr::addr_of_mut!(ctx).cast::<()>(),
             );
         }
 
@@ -252,6 +252,9 @@ where
 }
 
 #[cfg(test)]
+// Test code is exempt from `clippy::unwrap_used`: a panic here is the
+// assertion, not a defect escaping into a consumer's process.
+#[allow(clippy::unwrap_used)]
 mod tests {
     use std::boxed::Box;
 
@@ -279,7 +282,7 @@ mod tests {
         // The task wrapper's recovery path must not mask the first payload or
         // panic again merely because another task reports a panic afterward.
         unsafe {
-            super::task_wrapper::<(), fn(usize)>(0, &mut context as *mut _ as *mut ());
+            super::task_wrapper::<(), fn(usize)>(0, core::ptr::addr_of_mut!(context).cast::<()>());
         }
 
         let payload = take_panic_payload(mutex).expect("first panic payload survives poisoning");

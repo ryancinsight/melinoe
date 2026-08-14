@@ -58,7 +58,7 @@ impl<'a, 'brand, T> WriterShard<'a, 'brand, T> {
         // excludes all external/token access, so no `&mut T` to these cells exists
         // while the `&[T]` lives. The pointer carries whole-region provenance via
         // `UnsafeCell::get`.
-        unsafe { &*(ptr as *const [T]) }
+        unsafe { &*ptr.cast_const() }
     }
 
     /// View the partition as a plain exclusive slice (the higher capability;
