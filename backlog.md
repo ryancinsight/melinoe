@@ -13,6 +13,10 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Active
 
+- [ ] [patch] Verify the declared Rust 1.65 MSRV with a standalone locked
+  `cargo check --all-features` workflow. The current Atlas overlay is not a
+  valid floor oracle because peer provider manifests can require newer Cargo.
+
 - [x] [minor] Add generic branded-vector generation through
   `BrandedVec::from_fn` and `collections::with_generated`. The fresh
   higher-ranked brand remains inside the callback while its result escapes;

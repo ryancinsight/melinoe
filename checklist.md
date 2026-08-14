@@ -7,6 +7,12 @@ Target version: 0.9.0
 - [x] Add and validate the release workflow, then register `melinoe` against
   `ryancinsight/melinoe/.github/workflows/rust-release.yml` in crates.io.
 
+## MSRV verification (Unreleased)
+
+- [ ] [patch] Run the declared Rust 1.65 floor in a standalone locked
+  `cargo check --all-features` workflow; do not treat the Atlas development
+  overlay as MSRV evidence.
+
 ## Generativity continuation (Unreleased)
 
 - [x] [minor] Add `BrandedVec::from_fn` for index-sensitive generation and
