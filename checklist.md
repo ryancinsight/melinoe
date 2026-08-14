@@ -9,9 +9,10 @@ Target version: 0.9.0
 
 ## MSRV verification (Unreleased)
 
-- [ ] [patch] Run the declared Rust 1.65 floor in a standalone locked
-  `cargo check --all-features` workflow; do not treat the Atlas development
-  overlay as MSRV evidence.
+- [x] [patch] Run the declared Rust 1.65 floor in a standalone locked
+  `cargo check --all-targets --all-features` workflow; do not treat the Atlas
+  development overlay as MSRV evidence. Hosted run `31785253730` passed at
+  merged PR #16 head `6e6a181` after tracking the standalone `Cargo.lock`.
 
 ## Generativity continuation (Unreleased)
 
