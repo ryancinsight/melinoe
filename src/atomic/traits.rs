@@ -118,7 +118,7 @@ macro_rules! impl_atomic_int {
             #[inline]
             fn value_ptr(&self) -> *mut $value {
                 // SAFETY of later deref: same layout as `$value`, interior-mutable.
-                self as *const Self as *mut $value
+                core::ptr::from_ref(self).cast::<$value>().cast_mut()
             }
             #[inline]
             fn atomic_fetch_update<F>(
@@ -226,7 +226,7 @@ impl Atomic for AtomicBool {
     }
     #[inline]
     fn value_ptr(&self) -> *mut bool {
-        self as *const Self as *mut bool
+        core::ptr::from_ref(self).cast::<bool>().cast_mut()
     }
     #[inline]
     fn atomic_fetch_update<F>(

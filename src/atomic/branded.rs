@@ -44,7 +44,7 @@ impl<'brand, A: Atomic> BrandedAtomic<'brand, A> {
     pub fn from_mut(atomic: &mut A) -> &mut Self {
         // SAFETY: `Self` is `#[repr(transparent)]` over `A`; the unique `&mut A`
         // becomes a unique `&mut Self`, introducing no aliasing.
-        unsafe { &mut *(atomic as *mut A).cast::<Self>() }
+        unsafe { &mut *core::ptr::from_mut(atomic).cast::<Self>() }
     }
 
     /// View the underlying atomic in the shared phase, gated by a read permit.

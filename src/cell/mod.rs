@@ -85,7 +85,9 @@ impl<'brand, T: ?Sized> MelinoeCell<'brand, T> {
         // SAFETY: `Self` shares the layout of `T` (transparent over
         // `UnsafeCell<T>`, transparent over `T`). The unique `&mut T` becomes a
         // unique `&mut Self`; no aliasing is introduced.
-        unsafe { &mut *(value as *mut T as *mut Self) }
+        // `cast` cannot be used here: `T` is `?Sized`, and only an `as` cast
+        // preserves a fat pointer's metadata.
+        unsafe { &mut *(core::ptr::from_mut(value) as *mut Self) }
     }
 
     /// Acquire a shared, branded view of the contents.
@@ -145,7 +147,9 @@ impl<'brand, T> MelinoeCell<'brand, T> {
     /// not). Used by [`CellSliceExt`](crate::cell::CellSliceExt).
     #[inline]
     pub(crate) fn slice_as_unsafe_cell(slice: &[Self]) -> &UnsafeCell<[T]> {
-        let ptr = slice as *const [MelinoeCell<'brand, T>] as *const UnsafeCell<[T]>;
+        // `cast` cannot be used here: the slice is unsized, and only an `as`
+        // cast preserves the fat pointer's length metadata.
+        let ptr = core::ptr::from_ref(slice) as *const UnsafeCell<[T]>;
         // SAFETY: identical layout via the transparent chain above; the fat
         // pointer's length metadata is preserved by the cast.
         unsafe { &*ptr }

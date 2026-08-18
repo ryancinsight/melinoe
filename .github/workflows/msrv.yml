@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   check:
-    name: Rust 1.81.0 all-target check
+    name: Rust 1.81.0 check
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -48,5 +48,13 @@ jobs:
         with:
           toolchain: 1.81.0
 
-      - name: Check all targets at the MSRV
-        run: cargo check --locked --all-targets --all-features
+      # The consumer-facing surface only. `--all-targets` cannot run at the
+      # declared floor: the locked dev-dependency closure (clap_builder, via
+      # criterion) is edition 2024 and needs Cargo 1.85, so an all-target run
+      # at 1.81 fails in manifest parsing before it reaches this crate's code.
+      # Dev-dependencies are not part of the contract a consumer compiles
+      # against, so they do not set this crate's `rust-version`. The floor
+      # itself is `#[expect(..., reason = ...)]` (`lint_reasons`, stabilized
+      # 1.81) across `src/`; 1.80 fails it with 14 x E0658.
+      - name: Check the library at the MSRV
+        run: cargo check --locked --all-features
