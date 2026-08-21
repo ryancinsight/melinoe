@@ -268,7 +268,13 @@ mod tests {
             *payload = Some(Box::new("first panic"));
             panic!("poison payload mutex");
         }));
-        assert!(poison.is_err());
+        let Err(poison_payload) = poison else {
+            panic!("poisoning the payload mutex must unwind");
+        };
+        assert_eq!(
+            poison_payload.downcast_ref::<&'static str>(),
+            Some(&"poison payload mutex")
+        );
 
         let run: fn(usize) = |_| panic!("second panic");
         let mut successful = false;
@@ -295,7 +301,14 @@ mod tests {
             let _guard = mutex.lock().unwrap();
             panic!("poison empty payload mutex");
         }));
-        assert!(poison.is_err());
-        assert!(lock_panic_payload(&mutex).is_none());
+        let Err(poison_payload) = poison else {
+            panic!("poisoning the empty payload mutex must unwind");
+        };
+        assert_eq!(
+            poison_payload.downcast_ref::<&'static str>(),
+            Some(&"poison empty payload mutex")
+        );
+        let payload = lock_panic_payload(&mutex);
+        assert_eq!(payload.as_ref().map(|_| ()), None);
     }
 }

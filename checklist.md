@@ -2,6 +2,16 @@
 
 Target version: 0.9.0
 
+## ATLAS-MELINOE-PARTITION-PANIC-ORACLE-2026-08-20 [patch] — complete
+
+- [x] Replace both panic-result existence assertions with exact payload
+      checks and compare the recovered empty state as a value.
+- [x] Run all-feature and no-default locked checks, Clippy, Nextest, doctests,
+      Rustdoc, and the provider conformance scan.
+- [x] Exercise a real recovery-path mutation and restore the implementation;
+      the focused test fails under the mutation and passes after restoration.
+- [ ] Publish the exact provider branch and record hosted/publication status.
+
 ## Trusted publishing
 
 - [x] Add and validate the release workflow, then register `melinoe` against

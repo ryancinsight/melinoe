@@ -3,6 +3,15 @@
 Audit date: 2026-06-04. Scope: correctness/soundness, performance, memory
 efficiency, branding capability surface, testing, benchmarking, documentation.
 
+## 2026-08-20 Panic-recovery assertion oracle — closed
+
+The partition panic-recovery regression now asserts both exact panic payloads
+and the empty state of the recovered payload mutex. The provider conformance
+scan drops `existence_only_assertions` from 2 to 0 without changing another
+class. All-feature and no-default locked checks, strict Clippy, Nextest,
+doctests, and Rustdoc pass; a temporary mutation that discards the first
+payload fails the focused test.
+
 ## Method
 
 Full read of every source, test, and bench module; baseline `cargo test`,
