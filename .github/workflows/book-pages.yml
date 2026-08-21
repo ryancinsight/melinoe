@@ -1,36 +1,71 @@
 name: Deploy mdBook
 
+
+
 on:
+
   push:
+
     branches: [main]
+
     paths:
+
       - "docs/book/**"
+
       - ".github/workflows/book-pages.yml"
+
   pull_request:
+
     paths:
+
       - "docs/book/**"
+
       - ".github/workflows/book-pages.yml"
+
   workflow_dispatch:
 
+
+
 permissions:
+
   contents: read
 
+
+
 concurrency:
+
   group: book-pages-${{ github.ref }}
+
   cancel-in-progress: true
 
+
+
 jobs:
+
   deploy:
+
     # Body owned once by Atlas (ADR 0035); the caller passes only the
+
     # built output directory. Enable Pages once per repository under
+
     # Settings -> Pages -> Source: GitHub Actions.
-    uses: ryancinsight/atlas/.github/workflows/book-pages.yml@4c31dd753f06dd93b4c04798cf781df253e3e532
+
+    uses: ryancinsight/atlas/.github/workflows/book-pages.yml@20c93980f7c98f2e23a89c4a0540f16c8f2d7239
+
     permissions:
+
       contents: read
+
       pages: write
+
       id-token: write # OIDC Pages artifact flow; no deploy key.
+
     with:
+
       output-path: target/book/melinoe
+
       mdbook-test: true
+
       cargo-package: melinoe
+
       rust-toolchain: 1.97.0
