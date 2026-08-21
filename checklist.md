@@ -10,7 +10,9 @@ Target version: 0.9.0
       Rustdoc, and the provider conformance scan.
 - [x] Exercise a real recovery-path mutation and restore the implementation;
       the focused test fails under the mutation and passes after restoration.
-- [ ] Publish the exact provider branch and record hosted/publication status.
+- [x] Publish the exact provider branch and record the compare result.
+- [ ] Open the draft PR and collect hosted gates; blocked by connector HTTP
+      403 (`Resource not accessible by integration`).
 
 ## Trusted publishing
 

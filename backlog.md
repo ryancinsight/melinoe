@@ -22,8 +22,13 @@ other class unchanged. A temporary `take_panic_payload` mutation to `None`
 fails the focused recovery test; the implementation was restored and the
 focused test passes.
 
-**Delivery:** provider commit and publication status are recorded after the
-branch is pushed. The dirty detached primary checkout remains untouched.
+**Delivery:** commit `67e177d` is published on
+`fix/melinoe-panic-oracle`. GitHub compare confirms exact base `689f562` →
+head `67e177d` is one commit ahead with four intended files. Draft PR creation
+was rejected by the GitHub connector with HTTP 403 `Resource not accessible by
+integration`; no hosted gate or merge is claimed. Re-open publication when
+repository write authorization is available. The dirty detached primary
+checkout remains untouched.
 
 ## Atlas in-house replacement roadmap — melinoe slice [minor]
 
