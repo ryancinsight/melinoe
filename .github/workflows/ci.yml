@@ -22,6 +22,11 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
+  # `rust-toolchain.toml` pins 1.97.0, so every cargo call here uses it whatever
+  # the action installs. Without this input the action defaults to `stable` and
+  # rustup then fetches 1.97.0 as a second toolchain on first use, with the
+  # action's `components:` installed for the one that does not run.
+  RUST_TOOLCHAIN: 1.97.0
 
 jobs:
   verify:
@@ -34,6 +39,7 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
