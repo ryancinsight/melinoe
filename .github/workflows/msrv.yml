@@ -49,12 +49,10 @@ jobs:
 
       - name: Install the declared MSRV
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-
-      - name: Prove the toolchain under test
-
-        run: rustc --version && cargo --version
         with:
           toolchain: 1.81.0
+      - name: Prove the toolchain under test
+        run: rustc --version && cargo --version
 
       # The consumer-facing surface only. `--all-targets` cannot run at the
       # declared floor: the locked dev-dependency closure (clap_builder, via
