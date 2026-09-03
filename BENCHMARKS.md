@@ -12,11 +12,11 @@ cargo bench --bench conditional_atomics  # BrandedAtomic exclusive/shared/mixed
 #   -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
 ```
 
-Halo collection migration harnesses live in the `halo` workspace crate:
+The collection harnesses formerly shipped by Halo now live in this crate:
 
 ```sh
-cargo bench -p halo --bench branded_vec
-cargo bench -p halo --bench branded_deque
+cargo bench --bench branded_vec
+cargo bench --bench branded_deque
 # faster, lower-confidence sweep:
 #   -- --warm-up-time 0.3 --measurement-time 1.0 --sample-size 30
 ```
@@ -205,7 +205,7 @@ same scheduler through typed hardware-parallel and chunk-size plans.
 
 ### Halo branded collections
 
-The Halo harnesses pin that migrated collections benchmark their production
+The migrated collection harnesses benchmark their production
 permit-gated paths rather than synthetic adapters. `branded_vec` covers
 contiguous `BrandedVec` slice reads plus read/write partition adapters.
 `branded_deque` covers contiguous and wrapped `BrandedVecDeque` split-slice

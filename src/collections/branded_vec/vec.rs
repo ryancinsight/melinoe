@@ -34,7 +34,8 @@ impl<'brand, T> BrandedVec<'brand, T> {
     ///
     /// This is the collection-level constructor for callers that already own a
     /// surrounding brand. For an end-to-end generated computation that should mint
-    /// and consume a fresh brand in one expression, use [`with_generated`]. The
+    /// and consume a fresh brand in one expression, use
+    /// [`with_generated`](super::with_generated). The
     /// generator runs before the vector is handed to any permit-gated operation,
     /// while generated storage can only be accessed with the matching token.
     #[inline]
