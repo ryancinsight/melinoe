@@ -60,6 +60,44 @@ static PARALLEL_EXECUTOR: AtomicPtr<()> = AtomicPtr::new(core::ptr::null_mut());
 ///
 /// If registered, `partition_map_with` will execute chunks on the provided
 /// executor instead of spawning raw OS threads via `std::thread::scope`.
+///
+/// # Registration is process-global and order-sensitive
+///
+/// There is one slot for the whole process, and it is read afresh on every
+/// partition call. Two consequences follow.
+///
+/// **Register before partitioning.** The scoped-thread fallback costs roughly
+/// 30 µs per shard — it spawns `min(parts, len) − 1` OS threads per call and
+/// joins them — against a pool dispatch that spawns nothing. The gap is large
+/// enough that a fine-grained workload can be an order of magnitude slower on
+/// the fallback. Because registration is lazily performed by the scheduling
+/// layer (moirai registers from its own first-access initializer), a program
+/// whose first partition call happens *before* it touches that scheduler will
+/// silently take the fallback path for that call. Registering, or touching the
+/// scheduler, at startup avoids this.
+///
+/// **A later registration does not retroactively change a call in flight.**
+/// Each call loads the slot once; calls already running keep the driver they
+/// started with.
+///
+/// # Example
+///
+/// ```
+/// # use melinoe::sync::register_parallel_executor;
+/// unsafe fn run_tasks(num_tasks: usize, task: unsafe fn(usize, *mut ()), data: *mut ()) {
+///     for index in 0..num_tasks {
+///         // SAFETY: the caller upholds the `ParallelExecutor` contract; this
+///         // sequential stand-in invokes each index exactly once.
+///         unsafe { task(index, data) };
+///     }
+/// }
+///
+/// // SAFETY: `run_tasks` drives every index in `0..num_tasks` exactly once and
+/// // returns only after the last one, as `ParallelExecutor::new` requires.
+/// register_parallel_executor(unsafe {
+///     melinoe::sync::ParallelExecutor::new(run_tasks)
+/// });
+/// ```
 #[inline]
 pub fn register_parallel_executor(executor: ParallelExecutor) {
     PARALLEL_EXECUTOR.store(executor.as_ptr(), Ordering::Release);
