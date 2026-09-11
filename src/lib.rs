@@ -246,7 +246,7 @@ pub use token::{
 
 #[doc(inline)]
 #[cfg(feature = "std")]
-pub use sync::{clear_parallel_executor, register_parallel_executor, ParallelExecutor};
+pub use sync::{clear_parallel_executor, register_parallel_executor, Executor, ParallelExecutor};
 
 #[doc(inline)]
 #[cfg(feature = "alloc")]

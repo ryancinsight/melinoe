@@ -8,6 +8,18 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Changed
 
+- [major] The parallel-executor seam is now a **trait** rather than a bare
+  function-pointer capability. A scheduler implements
+  `unsafe trait ParallelExecutor` and registers with
+  `register_parallel_executor::<E>()`; the crate generates a monomorphized
+  shim, so the global slot is still a single pointer with no allocation and the
+  `no_std`/zero-dependency posture is unchanged. The trait states the contract
+  ("every index exactly once, blocking completion, no invocation outliving the
+  return") where an implementor will read it, and lets `Send`/`Sync` appear in
+  the signature instead of being laundered through a pointer-to-`usize` cast.
+  `Executor::new::<E>()` remains available for building a registrable value
+  directly. See "Breaking" below for the removed surface.
+
 - [minor] Added generic branded-vector generation through
   `BrandedVec::from_fn` and `collections::with_generated`. The latter owns the
   fresh higher-ranked brand for the callback, so generated storage and its
@@ -56,6 +68,16 @@ All notable changes to `melinoe` are documented here. The format follows
   cross-crate dependency boundary.
 
 ### Breaking
+
+- [major] `ParallelExecutor` is now a trait, not the `#[repr(transparent)]`
+  function-pointer newtype it was in 0.9.0. Registration takes a type
+  parameter — `register_parallel_executor::<MyExecutor>()` — in place of a
+  constructed value, and `ParallelExecutor::new` no longer exists. A
+  registrable value is available as `Executor` (built with `Executor::new::<E>()`)
+  for integrations that must hold one. Implementing the trait is `unsafe`,
+  because the contract's exact-once and blocking-completion obligations are
+  load-bearing for Melinoe's `MaybeUninit` out-buffer. The `ParallelExecutorFn`
+  alias retired in 0.9.0 remains retired, with no compatibility shim.
 
 - [major] Replaced the `ParallelExecutorFn` alias with the zero-cost
   `ParallelExecutor` capability. Integrators construct the capability through
