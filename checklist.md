@@ -297,6 +297,14 @@ Target version: 0.9.0
   races): `projection` (6), `partition` (15, incl. the new exact-size tests with
   real threads), `threads` (6), `conditional_atomics` (8), `conditional_cow` (5),
   `branding` (7), `multi_token` (8), `slice_views` (4), `differential` (3).
+  **Superseded (2026-09-11):** `partition` has since grown to **26** tests,
+  including three `proptest` cases added after this entry. At proptest's default
+  256 cases those spawn real threads over up to 255 elements, and under Miri that
+  one suite now exceeds a 20-minute budget and is killed mid-run (exit 143,
+  SIGTERM) — an unbounded `cargo miri test` can no longer pass. Verified clean at
+  `PROPTEST_CASES=8`: all 26 partition tests pass in ~67s, and the full suite
+  passes under both Stacked and Tree Borrows. The count above is the record of
+  the run as it stood, not the current suite size.
 - [x] [patch] Nightly `cargo clippy --all-targets --all-features -- -D warnings`
   is clean. The local MSYS2-packaged nightly bakes the stable release channel, so
   `#![feature(doc_cfg)]` requires `RUSTC_BOOTSTRAP=1`; with that set the

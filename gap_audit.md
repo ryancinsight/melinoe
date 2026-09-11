@@ -355,6 +355,16 @@ full suite (no UB, no data races): `projection` (6), `partition` (15, including
 the new exact-size tests under real `std::thread::scope`), `threads` (6),
 `conditional_atomics` (8), `conditional_cow` (5), `branding` (7), `multi_token`
 (8), `slice_views` (4), `differential` (3) — evidence tier: machine-checked.
+
+**2026-09-11 re-verification.** The suite has grown since the entry above
+(`partition` is now 26 tests, not 15) and an unbounded `cargo miri test` no
+longer completes: the three `partition` proptests run 256 cases each by default
+and spawn real threads over up to 255 elements, which exceeds a 20-minute budget
+under Miri (observed exit 143 = SIGTERM, not UB). Re-verified clean at
+`PROPTEST_CASES=8` — all 26 partition tests in ~67s, full suite green under both
+Stacked Borrows and Tree Borrows. `.github/workflows/ci.yml` now runs both
+models in a dedicated `miri` job, so the README's Miri claim is enforced rather
+than asserted.
 **`cargo-semver-checks`** runs via the git-rev baseline (`--baseline-rev HEAD`):
 v0.5.0 → v0.6.0 reports no semver update required, confirming the [minor]
 classification; default registry comparison awaits publication, and

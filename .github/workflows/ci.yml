@@ -87,3 +87,51 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --locked --no-deps --all-features
+
+  # The README pins soundness two ways: `compile_fail` doctests, which `verify`
+  # already runs, and Miri (Stacked Borrows + data-race detection). Nothing ran
+  # the second one, so the claim was unfalsifiable in CI. This job makes it
+  # falsifiable.
+  #
+  # Miri needs nightly; the crate's own `rust-toolchain.toml` pins stable, so
+  # the toolchain is selected per-invocation rather than through the repo file.
+  #
+  # `PROPTEST_CASES` is bounded deliberately. `tests/partition.rs` carries three
+  # proptests at proptest's default 256 cases, each spawning real threads over up
+  # to 255 elements. Under Miri's ~1000x slowdown that single suite exceeds a
+  # 20-minute budget and is killed mid-run, so an unbounded invocation cannot
+  # pass. At 8 cases the full 26-test suite completes cleanly in ~67s. The bound
+  # is a scheduling constraint, not a reduction in what is checked: every test
+  # still runs, and the shrinker still minimizes any counterexample it finds.
+  miri:
+    name: Miri (aliasing and data-race detection)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the Miri nightly toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # nightly
+        with:
+          toolchain: nightly
+          components: miri
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # Both aliasing models the README names are run, over the same targets.
+      # Stacked Borrows is Miri's default; Tree Borrows is a *more permissive*
+      # model, so a program clean under Tree Borrows can still be UB under
+      # Stacked Borrows. Neither subsumes the other, so both are run in full —
+      # a single model would not pin the "Stacked and Tree Borrows" claim.
+      - name: Miri — melinoe (Stacked Borrows)
+        env:
+          PROPTEST_CASES: "8"
+          MIRIFLAGS: -Zmiri-disable-isolation
+        run: cargo +nightly miri test --locked --all-features
+
+      - name: Miri — melinoe (Tree Borrows)
+        env:
+          PROPTEST_CASES: "8"
+          MIRIFLAGS: -Zmiri-tree-borrows -Zmiri-disable-isolation
+        run: cargo +nightly miri test --locked --all-features
