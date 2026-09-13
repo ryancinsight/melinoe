@@ -4,7 +4,9 @@ mod map;
 mod plan;
 mod read_map;
 
-pub use executor::{clear_parallel_executor, register_parallel_executor, ParallelExecutor};
+pub use executor::{
+    clear_parallel_executor, register_parallel_executor, Executor, ParallelExecutor,
+};
 pub use map::{
     partition_for_each, partition_for_each_available, partition_for_each_with, partition_map,
     partition_map_available, partition_map_with,

@@ -122,16 +122,16 @@ Target version: 0.9.0
 
 ## Current micro-sprint (0.9.0)
 
-- [x] [major] Record ADR 0001: replace the raw executor alias with a transparent
-  validated capability; reject unsafe-at-every-registration and trait-object
+- [x] [major] Record ADR 0001: replace the raw executor alias with an unsafe
+  `ParallelExecutor` trait; reject unsafe-at-every-registration and trait-object
   alternatives.
-- [x] [major] Encode the implementer obligation in
-  `ParallelExecutor::new`, preserve safe registration, pin function-pointer
-  layout at compile time, and remove `ParallelExecutorFn` completely.
+- [x] [major] Encode the implementer obligation in the trait's associated
+  `run_indexed` function, preserve safe type registration, pin the transparent
+  function-pointer capability at compile time, and remove `ParallelExecutorFn`.
 - [x] [major] Migrate Melinoe contracts and Moirai's registration boundary.
-- [x] Evidence: workspace Clippy; 121/121 nextest; 30/30 doctests; rustdoc;
-  three focused registered-executor Miri tests; `cargo semver-checks` classifies
-  0.8.0 to 0.9.0 as a major change.
+- [x] Evidence: workspace Clippy; partition tests including a non-zero-sized
+  executor; doctests; rustdoc; focused registered-executor Miri tests; and
+  `cargo semver-checks` classifying 0.8.0 to 0.9.0 as a major change.
 
 ## Prior micro-sprint (0.8.0)
 
@@ -297,6 +297,14 @@ Target version: 0.9.0
   races): `projection` (6), `partition` (15, incl. the new exact-size tests with
   real threads), `threads` (6), `conditional_atomics` (8), `conditional_cow` (5),
   `branding` (7), `multi_token` (8), `slice_views` (4), `differential` (3).
+  **Superseded (2026-09-11):** `partition` has since grown to **26** tests,
+  including three `proptest` cases added after this entry. At proptest's default
+  256 cases those spawn real threads over up to 255 elements, and under Miri that
+  one suite now exceeds a 20-minute budget and is killed mid-run (exit 143,
+  SIGTERM) — an unbounded `cargo miri test` can no longer pass. Verified clean at
+  `PROPTEST_CASES=8`: all 26 partition tests pass in ~67s, and the full suite
+  passes under both Stacked and Tree Borrows. The count above is the record of
+  the run as it stood, not the current suite size.
 - [x] [patch] Nightly `cargo clippy --all-targets --all-features -- -D warnings`
   is clean. The local MSYS2-packaged nightly bakes the stable release channel, so
   `#![feature(doc_cfg)]` requires `RUSTC_BOOTSTRAP=1`; with that set the

@@ -439,8 +439,16 @@ and they fall into a few categories:
 The capability traits are **sealed**: downstream crates cannot forge a permit.
 Soundness is pinned two ways: `compile_fail` doctests (brand mixing, read/write
 overlap, sending a thread-local token) and **Miri** (Stacked Borrows +
-data-race detection) over the whole test suite, including the cross-thread
+data-race detection) over every test target, including the cross-thread
 disjoint-write and conditional-atomic transitions.
+
+The Miri job runs `cargo +nightly miri test --all-features` with
+`PROPTEST_CASES=8`. That bound is a wall-clock constraint, not a reduction in
+coverage: `tests/partition.rs` carries three proptests at proptest's default 256
+cases, each spawning real threads over up to 255 elements, and under Miri's
+slowdown that one suite exceeds a 20-minute budget and is killed mid-run. At 8
+cases the full 26-test suite completes in ~67s. Every test still runs, and any
+counterexample the shrinker finds is still minimized and reported.
 
 ## License
 

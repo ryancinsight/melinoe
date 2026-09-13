@@ -152,6 +152,58 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 
 ## Next
 
+- <a id="partition-spawn-crossover"></a>[minor] Guard the scoped-thread
+  partition fallback against shard counts whose work cannot pay for a thread
+  spawn, **and prefer the pool-backed path**. Measured 2026-09-11 on a 24-core
+  x86_64 host: the fallback's cost is linear in shard count at **~30 µs/shard**
+  and essentially independent of work — `cells=8` and `cells=65536` both cost
+  ~250 µs at 8 shards, despite 8192× more elements. `parts=1` costs 40 ns,
+  `parts=2` costs 93 µs (a 2300× cliff from one spawn). Break-even is **~130 µs
+  of total work** (≈ `cells × cost ≳ 50,000` element-ops at 4 threads); below
+  that the parallel path is *slower* than running inline.
+  `driver_core::drive` spawns `min(parts, n) − 1` OS threads unconditionally, so
+  every small-region call is pure loss.
+
+  Note this is the **fallback**, not the production path: moirai's
+  `moirai-parallel::melinoe_ext::{par_partition_for_each, par_partition_map}`
+  already routes partitioning onto the shared work-stealing pool and bypasses
+  OS-thread spawning entirely, and `CFDrs` uses it
+  (`crates/cfd-core/src/physics/fluid_dynamics/operations.rs:47`). So the
+  priority is not to tune the spawn path but to (a) route through the pool, and
+  (b) document that consumers doing fine-grained work must register an executor.
+  Any added floor should reuse moirai's own compile-time `ExecutionPolicy`
+  (`moirai-parallel/src/policy.rs`) rather than introduce a second threshold
+  concept in melinoe. Blocked on a public-behaviour decision, because
+  `partition_map`'s `parts` is documented as an exact shard count and a guard
+  that silently runs inline changes that contract. Evidence:
+  `benches/access.rs::bench_partition_driver` plus the scaling probe recorded in
+  the 2026-09-11 workspace log.
+
+- <a id="moirai-melinoe-ext-execution-policy"></a>[minor] (cross-repo, moirai)
+  `moirai-parallel::melinoe_ext::{par_partition_for_each, par_partition_map}`
+  dispatch to `global().for_each_indexed(...)` **unconditionally** — no
+  `ExecutionPolicy` parameter and no size check — so a 4-cell region is
+  parallelized as eagerly as a million-cell one. This is precisely the failure
+  mode `Adaptive` exists to prevent, and the policy machinery is already in the
+  same crate (`moirai-parallel/src/policy.rs`, with the crossover already
+  tabulated in `ADAPTIVE_PARALLEL_THRESHOLD`'s docs). The module's own tests
+  call it with 16 and 10 elements. Fix must not break the live `CFDrs` consumer
+  (`crates/cfd-core/src/physics/fluid_dynamics/operations.rs:47`): either add
+  `P: ExecutionPolicy` as a type parameter with a `Parallel` default, or add
+  parallel `*_with_policy` functions and leave the existing signatures as
+  `Parallel`.
+
+- <a id="moirai-executor-registration-order"></a>[minor] (cross-repo, moirai)
+  `global_arc()` calls `melinoe::register_parallel_executor` **inside** its
+  `OnceLock` initializer (`moirai-executor/src/lib.rs:141-154`), so melinoe's
+  driver routes through the moirai pool only after something has first touched
+  moirai's `global()`. A consumer calling `melinoe::sync::partition_map` earlier
+  silently gets the ~54 µs-per-thread spawn fallback. The passing test
+  `placement.rs:162 test_melinoe_partition_routing` opens with
+  `let _exec = crate::global();` — that line is load-bearing and the ordering
+  hazard is undocumented. Either register eagerly from a constructor/`ctor`
+  path, or document the required ordering at the melinoe registration API.
+
 - <a id="semver-registry"></a>[patch] After registry publication, switch
   `cargo-semver-checks` from the `--baseline-rev` git workflow (now established)
   to the default crates.io baseline, and re-run once semver-checks supports the
@@ -160,10 +212,12 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 ## Closed
 
 - <a id="parallel-executor-capability"></a>[major] Replaced the
-  `ParallelExecutorFn` domain alias with a transparent validating capability.
-  Evidence: compile-time layout assertion, 121/121 nextest, 30/30 doctests,
-  Clippy/rustdoc, three focused Miri tests, and major-change semver
-  classification. Decision: ADR 0001.
+  `ParallelExecutorFn` domain alias with an unsafe `ParallelExecutor` trait and
+  a transparent function-pointer capability. The associated `run_indexed`
+  entry point stores no fabricated receiver; a non-zero-sized implementation is
+  covered at the registration boundary. Evidence: compile-time layout assertion,
+  partition and panic tests, doctests, Clippy/rustdoc, focused Miri executor-path
+  tests, and major-change semver classification. Decision: ADR 0001.
 
 - <a id="atlas-device-contract"></a>[minor] Added the Atlas device-buffer
   ownership-transfer contract crate in commit `375108b`; the workspace now

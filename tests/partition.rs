@@ -176,25 +176,40 @@ mod concurrent {
 
     static EXECUTED_TASKS: AtomicUsize = AtomicUsize::new(0);
 
-    unsafe fn deterministic_executor(
-        num_tasks: usize,
-        task_fn: unsafe fn(usize, *mut ()),
-        data: *mut (),
-    ) {
-        EXECUTED_TASKS.store(num_tasks, Ordering::SeqCst);
-        for index in 0..num_tasks {
-            // SAFETY: this deterministic executor runs every task index exactly
-            // once before returning, satisfying `ParallelExecutor`.
-            unsafe {
-                task_fn(index, data);
+    /// A stand-in scheduler that runs tasks in ascending index order on the
+    /// calling thread, recording how many it was asked for.
+    struct Deterministic;
+
+    // SAFETY: `run_indexed` invokes every index in ascending order exactly once
+    // and returns only after the last invocation completes, as the contract
+    // requires. Running on the calling thread adds no concurrency, so it cannot
+    // observe the context pointer from anywhere the caller did not expect.
+    unsafe impl ParallelExecutor for Deterministic {
+        unsafe fn run_indexed(num_tasks: usize, task: unsafe fn(usize, *mut ()), context: *mut ()) {
+            EXECUTED_TASKS.store(num_tasks, Ordering::SeqCst);
+            for index in 0..num_tasks {
+                // SAFETY: forwarded from the caller; this implementation invokes
+                // each index exactly once with the caller's context.
+                unsafe { task(index, context) };
             }
         }
     }
 
-    // SAFETY: `deterministic_executor` invokes every index in ascending order
-    // exactly once and returns only after the last invocation completes.
-    const DETERMINISTIC_EXECUTOR: ParallelExecutor =
-        unsafe { ParallelExecutor::new(deterministic_executor) };
+    /// A non-zero-sized implementation proves registration does not fabricate
+    /// a receiver value or borrow storage with the wrong layout.
+    struct NonZeroSized([u8; 64]);
+
+    // SAFETY: the implementation delegates to the deterministic scheduler,
+    // which invokes every index exactly once and blocks until completion.
+    unsafe impl ParallelExecutor for NonZeroSized {
+        unsafe fn run_indexed(num_tasks: usize, task: unsafe fn(usize, *mut ()), context: *mut ()) {
+            let marker = Self([0; 64]);
+            let _ = marker.0[0];
+            // SAFETY: the delegated implementation receives the same valid
+            // task and context and discharges the executor contract.
+            unsafe { <Deterministic as ParallelExecutor>::run_indexed(num_tasks, task, context) };
+        }
+    }
 
     /// Four threads concurrently fill disjoint partitions with global indices;
     /// the joined region equals the identity mapping.
@@ -251,7 +266,7 @@ mod concurrent {
         const N: usize = 32;
         let _guard = ExecutorTestGuard::acquire();
         EXECUTED_TASKS.store(0, Ordering::SeqCst);
-        register_parallel_executor(DETERMINISTIC_EXECUTOR);
+        register_parallel_executor::<Deterministic>();
 
         brand_scope(|token| {
             let mut cells: Vec<MelinoeCell<'_, usize>> =
@@ -274,11 +289,37 @@ mod concurrent {
     }
 
     #[test]
+    fn non_zero_sized_executor_registers_without_receiver_storage() {
+        const N: usize = 8;
+        let _guard = ExecutorTestGuard::acquire();
+        EXECUTED_TASKS.store(0, Ordering::SeqCst);
+        register_parallel_executor::<NonZeroSized>();
+
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> = (0..N).map(MelinoeCell::new).collect();
+            partition_for_each_with(
+                &mut cells,
+                PartitionPlan::chunk_size(2),
+                |start, mut shard| {
+                    for (offset, value) in shard.iter_mut().enumerate() {
+                        *value += start + offset;
+                    }
+                },
+            );
+            let snapshot = token.share();
+            let values: Vec<usize> = cells.iter().map(|cell| *cell.borrow(snapshot)).collect();
+            assert_eq!(values, (0..N).map(|index| index * 2).collect::<Vec<_>>());
+        });
+
+        assert_eq!(EXECUTED_TASKS.load(Ordering::SeqCst), 4);
+    }
+
+    #[test]
     fn clearing_registered_executor_restores_default_driver() {
         const N: usize = 8;
         let _guard = ExecutorTestGuard::acquire();
         EXECUTED_TASKS.store(0, Ordering::SeqCst);
-        register_parallel_executor(DETERMINISTIC_EXECUTOR);
+        register_parallel_executor::<Deterministic>();
         clear_parallel_executor();
 
         brand_scope(|token| {
@@ -533,7 +574,7 @@ mod concurrent {
             }
         }
 
-        register_parallel_executor(DETERMINISTIC_EXECUTOR);
+        register_parallel_executor::<Deterministic>();
 
         let mut cells: Vec<MelinoeCell<'_, usize>> = (0..4).map(|_| MelinoeCell::new(0)).collect();
 
@@ -568,7 +609,7 @@ mod concurrent {
             }
         }
 
-        register_parallel_executor(DETERMINISTIC_EXECUTOR);
+        register_parallel_executor::<Deterministic>();
 
         let values: Vec<usize> = vec![0; 4];
 
