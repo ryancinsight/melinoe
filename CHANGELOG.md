@@ -8,7 +8,7 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Changed
 
-- [major] The parallel-executor seam is now a **trait** rather than a bare
+- [major] The parallel-executor seam is now an **unsafe trait** rather than a bare
   function-pointer capability. A scheduler implements
   `unsafe trait ParallelExecutor` and registers with
   `register_parallel_executor::<E>()`; the crate generates a monomorphized
@@ -18,7 +18,8 @@ All notable changes to `melinoe` are documented here. The format follows
   return") where an implementor will read it, and lets `Send`/`Sync` appear in
   the signature instead of being laundered through a pointer-to-`usize` cast.
   `Executor::new::<E>()` remains available for building a registrable value
-  directly. See "Breaking" below for the removed surface.
+  directly. The associated entry point has no receiver, so registration never
+  fabricates scheduler storage. See "Breaking" below for the removed surface.
 
 - [minor] Added generic branded-vector generation through
   `BrandedVec::from_fn` and `collections::with_generated`. The latter owns the
@@ -56,8 +57,6 @@ All notable changes to `melinoe` are documented here. The format follows
   already enforced via `[lints.rust]` in `Cargo.toml`; this makes it visible at
   the crate root where the rest of the stack places it.
 
-### Changed
-
 - [patch] Consolidated `crates/halo` into the root `melinoe` crate. The public
   types `BrandedVec`, `BrandedVecDeque`, `BrandedDrain`, and
   `BrandedVecDequeDrain` now live in `melinoe::collections` (gated on
@@ -78,12 +77,6 @@ All notable changes to `melinoe` are documented here. The format follows
   because the contract's exact-once and blocking-completion obligations are
   load-bearing for Melinoe's `MaybeUninit` out-buffer. The `ParallelExecutorFn`
   alias retired in 0.9.0 remains retired, with no compatibility shim.
-
-- [major] Replaced the `ParallelExecutorFn` alias with the zero-cost
-  `ParallelExecutor` capability. Integrators construct the capability through
-  `unsafe { ParallelExecutor::new(executor) }`, discharging exact-once index,
-  blocking-completion, and context-lifetime obligations once; safe registration
-  accepts only the validated value. No compatibility alias remains.
 
 ### Added
 

@@ -185,18 +185,29 @@ mod concurrent {
     // requires. Running on the calling thread adds no concurrency, so it cannot
     // observe the context pointer from anywhere the caller did not expect.
     unsafe impl ParallelExecutor for Deterministic {
-        unsafe fn run_indexed(
-            &self,
-            num_tasks: usize,
-            task: unsafe fn(usize, *mut ()),
-            context: *mut (),
-        ) {
+        unsafe fn run_indexed(num_tasks: usize, task: unsafe fn(usize, *mut ()), context: *mut ()) {
             EXECUTED_TASKS.store(num_tasks, Ordering::SeqCst);
             for index in 0..num_tasks {
                 // SAFETY: forwarded from the caller; this implementation invokes
                 // each index exactly once with the caller's context.
                 unsafe { task(index, context) };
             }
+        }
+    }
+
+    /// A non-zero-sized implementation proves registration does not fabricate
+    /// a receiver value or borrow storage with the wrong layout.
+    struct NonZeroSized([u8; 64]);
+
+    // SAFETY: the implementation delegates to the deterministic scheduler,
+    // which invokes every index exactly once and blocks until completion.
+    unsafe impl ParallelExecutor for NonZeroSized {
+        unsafe fn run_indexed(num_tasks: usize, task: unsafe fn(usize, *mut ()), context: *mut ()) {
+            let marker = Self([0; 64]);
+            let _ = marker.0[0];
+            // SAFETY: the delegated implementation receives the same valid
+            // task and context and discharges the executor contract.
+            unsafe { <Deterministic as ParallelExecutor>::run_indexed(num_tasks, task, context) };
         }
     }
 
@@ -275,6 +286,32 @@ mod concurrent {
                 assert_eq!(*cell.borrow(snap), index);
             }
         });
+    }
+
+    #[test]
+    fn non_zero_sized_executor_registers_without_receiver_storage() {
+        const N: usize = 8;
+        let _guard = ExecutorTestGuard::acquire();
+        EXECUTED_TASKS.store(0, Ordering::SeqCst);
+        register_parallel_executor::<NonZeroSized>();
+
+        brand_scope(|token| {
+            let mut cells: Vec<MelinoeCell<'_, usize>> = (0..N).map(MelinoeCell::new).collect();
+            partition_for_each_with(
+                &mut cells,
+                PartitionPlan::chunk_size(2),
+                |start, mut shard| {
+                    for (offset, value) in shard.iter_mut().enumerate() {
+                        *value += start + offset;
+                    }
+                },
+            );
+            let snapshot = token.share();
+            let values: Vec<usize> = cells.iter().map(|cell| *cell.borrow(snapshot)).collect();
+            assert_eq!(values, (0..N).map(|index| index * 2).collect::<Vec<_>>());
+        });
+
+        assert_eq!(EXECUTED_TASKS.load(Ordering::SeqCst), 4);
     }
 
     #[test]

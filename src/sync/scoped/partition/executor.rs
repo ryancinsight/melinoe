@@ -29,8 +29,10 @@
 //!
 //! Expressing the seam as a trait does not make the contract verifiable — that
 //! is not possible across a crate boundary — but it moves it to one place an
-//! implementor cannot miss, and it lets `Send` appear in the signature where
-//! the compiler can check it.
+//! implementor cannot miss. The entry point is an associated function rather
+//! than a receiver method: the global slot stores no scheduler value, so an
+//! implementation cannot accidentally observe fabricated or uninitialized
+//! receiver storage.
 //!
 //! # The zero-alloc global slot
 //!
@@ -64,9 +66,9 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 /// A scheduler that can run a partition's independent tasks.
 ///
 /// This is the contract a scheduler honours to drive Melinoe's partitioning.
-/// Implement it on a zero-sized or `'static` type, then pass an instance to
-/// [`register_parallel_executor`] (or the shim is generated automatically by
-/// that function for the type you pass).
+/// Implement its associated entry point, then pass the type to
+/// [`register_parallel_executor`]. The global slot stores only a
+/// monomorphized function pointer; no scheduler value or receiver is created.
 ///
 /// # Contract
 ///
@@ -113,7 +115,6 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 /// // returns only after the last invocation, as the contract requires.
 /// unsafe impl ParallelExecutor for Sequentially {
 ///     unsafe fn run_indexed(
-///         &self,
 ///         num_tasks: usize,
 ///         task: unsafe fn(usize, *mut ()),
 ///         context: *mut (),
@@ -126,7 +127,7 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 ///     }
 /// }
 /// ```
-pub unsafe trait ParallelExecutor {
+pub unsafe trait ParallelExecutor: Sized {
     /// Run `task` for every index in `0..num_tasks`, blocking until all have
     /// completed.
     ///
@@ -135,37 +136,7 @@ pub unsafe trait ParallelExecutor {
     /// The caller must pass a `context` that is a live pointer of the type
     /// `task` expects, valid for the entire call, and must not use the pointer
     /// again until this method returns. See the trait's own `# Safety`.
-    unsafe fn run_indexed(
-        &self,
-        num_tasks: usize,
-        task: unsafe fn(usize, *mut ()),
-        context: *mut (),
-    );
-}
-
-/// The single shared instance handed to `E::run_indexed`.
-///
-/// Implementations are expected to be stateless — the contract leaves them no
-/// way to receive per-call state, and any that they carry must be internally
-/// synchronized — so one `'static` instance per implementing type is enough and
-/// none is constructed per call.
-static INSTANCE: () = ();
-
-/// Reborrow the shared instance as a receiver for `E`.
-///
-/// # Safety
-///
-/// The returned reference is a shared reborrow of a `'static` unit value; it
-/// carries no data, so no read through it can observe which type reborrows it.
-/// Callers use it only to satisfy the `&self` receiver of a stateless
-/// implementation.
-#[inline]
-unsafe fn shared_instance<E: ParallelExecutor>() -> &'static E {
-    // SAFETY: `INSTANCE` is a live `'static` value, and `E`'s only requirement
-    // here is that it can be referenced; the reference is never dereferenced
-    // further than the `&self` receiver, which a stateless implementation does
-    // not read. `E: 'static` keeps the borrow valid for the returned lifetime.
-    unsafe { &*core::ptr::addr_of!(INSTANCE).cast::<E>() }
+    unsafe fn run_indexed(num_tasks: usize, task: unsafe fn(usize, *mut ()), context: *mut ());
 }
 
 /// The ABI of the registered shim: type-erased, monomorphized per implementor
@@ -174,8 +145,9 @@ type ExecutorFn = unsafe fn(usize, unsafe fn(usize, *mut ()), *mut ());
 
 /// A validated, process-global parallel executor.
 ///
-/// Construct one with [`ParallelExecutor::new`] (or [`register`], which does it
-/// for you) and hand it to [`register_parallel_executor`].
+/// Construct one with [`Executor::new`] and hand it to
+/// [`register_parallel_executor`] when an integration needs to hold the
+/// function-pointer capability before registration.
 #[must_use]
 #[repr(transparent)]
 #[derive(Clone, Copy)]
@@ -204,9 +176,7 @@ impl Executor {
             // `context` unchanged is the identity case of that obligation, so
             // the shim upholds `run_indexed`'s own requirement.
             //
-            // `shared_instance` yields the `&self` receiver; the value carries
-            // no data, so handing it to a stateless `E` cannot introduce state.
-            unsafe { E::run_indexed(shared_instance::<E>(), num_tasks, task, context) };
+            unsafe { E::run_indexed(num_tasks, task, context) };
         }
         Self(shim::<E>)
     }
@@ -256,7 +226,6 @@ static PARALLEL_EXECUTOR: AtomicPtr<()> = AtomicPtr::new(core::ptr::null_mut());
 /// // call returns only after the last invocation completes.
 /// unsafe impl ParallelExecutor for Sequentially {
 ///     unsafe fn run_indexed(
-///         &self,
 ///         num_tasks: usize,
 ///         task: unsafe fn(usize, *mut ()),
 ///         context: *mut (),

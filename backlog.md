@@ -212,10 +212,12 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
 ## Closed
 
 - <a id="parallel-executor-capability"></a>[major] Replaced the
-  `ParallelExecutorFn` domain alias with a transparent validating capability.
-  Evidence: compile-time layout assertion, 121/121 nextest, 30/30 doctests,
-  Clippy/rustdoc, three focused Miri tests, and major-change semver
-  classification. Decision: ADR 0001.
+  `ParallelExecutorFn` domain alias with an unsafe `ParallelExecutor` trait and
+  a transparent function-pointer capability. The associated `run_indexed`
+  entry point stores no fabricated receiver; a non-zero-sized implementation is
+  covered at the registration boundary. Evidence: compile-time layout assertion,
+  partition and panic tests, doctests, Clippy/rustdoc, focused Miri executor-path
+  tests, and major-change semver classification. Decision: ADR 0001.
 
 - <a id="atlas-device-contract"></a>[minor] Added the Atlas device-buffer
   ownership-transfer contract crate in commit `375108b`; the workspace now
