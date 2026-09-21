@@ -64,6 +64,29 @@ fn from_mut_brands_existing_storage_in_place() {
 }
 
 #[test]
+fn from_mut_slice_brands_existing_storage_in_place() {
+    use melinoe::region::WriterShard;
+
+    let mut backing = [1_i32, 2, 3, 4];
+    {
+        let cells = MelinoeCell::from_mut_slice(&mut backing);
+        assert_eq!(cells.len(), 4);
+
+        // Two disjoint shards over the branded view, written independently:
+        // the layout is shared with `[i32]`, so nothing is copied.
+        let (mut lo, mut hi) = WriterShard::new(cells).split_at(2);
+        for (j, slot) in lo.iter_mut().enumerate() {
+            *slot = 10 + j as i32;
+        }
+        for (j, slot) in hi.iter_mut().enumerate() {
+            *slot = 20 + j as i32;
+        }
+    }
+    // The plain slice observes the writes made through the branded cells.
+    assert_eq!(backing, [10, 11, 20, 21]);
+}
+
+#[test]
 fn thread_local_brand_supports_full_read_write_cycle() {
     let final_value = thread_local_scope(|mut token| {
         let cell = MelinoeCell::new(vec![1, 2, 3]);

@@ -75,6 +75,26 @@ impl<'a, 'brand, T> WriterShard<'a, 'brand, T> {
         unsafe { &mut *ptr }
     }
 
+    /// Consume the shard into an exclusive `&mut [T]` over its whole partition.
+    ///
+    /// The consuming analogue of [`as_mut_slice`](Self::as_mut_slice): because
+    /// the shard owns the region's exclusive borrow, taking it by value lets the
+    /// returned slice carry the region's `'a` lifetime rather than borrowing the
+    /// shard value. A driver that materializes one disjoint slice per buffer at
+    /// the same moment — the multi-buffer chunk operators — needs every slice to
+    /// outlive its own shard, which `as_mut_slice` cannot express.
+    #[inline]
+    #[must_use]
+    pub fn into_mut_slice(self) -> &'a mut [T] {
+        let ptr = MelinoeCell::slice_as_unsafe_cell(self.cells).get();
+        // SAFETY: consuming `self` moves its exclusive `&'a mut
+        // [MelinoeCell<'brand, T>]` borrow into this function and drops the
+        // shard afterwards, so no other reference to these cells exists; the
+        // `&'a mut [T]` is therefore unaliased for `'a`. Same conversion as
+        // `as_mut_slice`, with the region's lifetime instead of the shard's.
+        unsafe { &mut *ptr }
+    }
+
     /// Shared read of the `index`-th cell (needs `&self`).
     #[inline]
     #[must_use]
