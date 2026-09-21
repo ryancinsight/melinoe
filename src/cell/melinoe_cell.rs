@@ -59,6 +59,33 @@ impl<'brand, T> MelinoeCell<'brand, T> {
     {
         core::mem::replace(&mut *self.borrow_mut(permit), value)
     }
+
+    /// Reborrow an exclusive slice as a slice of branded cells, in place.
+    ///
+    /// The slice analogue of [`from_mut`](Self::from_mut): because
+    /// `MelinoeCell` is `#[repr(transparent)]` over `UnsafeCell<T>` over `T`,
+    /// `[T]` and `[MelinoeCell<'brand, T>]` share a layout, so a `&mut [T]`
+    /// reborrows as `&mut [Self]` at zero cost and with no length metadata
+    /// change. This is the bridge that lets a consumer of plain slices — e.g.
+    /// `moirai-parallel`'s mutable operators — hand a region to the branded
+    /// [`WriterShard`](crate::region::WriterShard) partitioning machinery
+    /// instead of a hand-rolled pointer cast.
+    ///
+    /// Exclusivity comes from the `&mut [T]` itself, exactly as for
+    /// [`from_mut`](Self::from_mut): the returned view borrows the input for its
+    /// whole lifetime, so no second view of the same elements can coexist. The
+    /// inferred `'brand` carries no token, so the cells are reachable only
+    /// through this borrow (or a shard derived from it), never through a
+    /// `brand_scope` permit.
+    #[inline]
+    #[must_use]
+    pub fn from_mut_slice(values: &mut [T]) -> &mut [Self] {
+        // SAFETY: identical layout via the transparent chain above. The unique
+        // `&mut [T]` becomes a unique `&mut [Self]`; no aliasing is introduced.
+        // `cast` cannot be used here: the slice is unsized, and only an `as`
+        // cast preserves the fat pointer's length metadata.
+        unsafe { &mut *(core::ptr::from_mut(values) as *mut [Self]) }
+    }
 }
 
 impl<'brand, T: ?Sized> MelinoeCell<'brand, T> {
