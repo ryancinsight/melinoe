@@ -1,86 +1,13 @@
-//! [`ThreadLocalToken`] — a brand confined to its originating thread.
+//! [`ThreadLocalToken`] - a brand confined to its originating thread.
 
-use core::fmt;
-use core::marker::PhantomData;
+use crate::token::brand::{define_brand_owner_token, ThreadLocalMarker};
 
-use crate::token::capability::private::Sealed;
-use crate::token::{
-    with_fresh_token, FreshBrand, InvariantLifetime, ReadPermit, TokenFamily, WritePermit,
-};
-
-/// A brand owner that is statically pinned to one thread.
-///
-/// `ThreadLocalToken` provides the same read/write permit interface as
-/// [`ExclusiveToken`](crate::ExclusiveToken)—a `&` borrow is a [`ReadPermit`]
-/// and a `&mut` borrow is a [`WritePermit`]—but it deliberately implements
-/// neither [`Send`] nor [`Sync`] (it carries a `*const ()` phantom). The whole
-/// capability, and therefore every cell it governs, is consequently un-sendable:
-/// the compiler rejects any attempt to move the access right to another thread.
-///
-/// Use this brand for allocator metadata that must never leave its owning
-/// thread—free lists, bump cursors, and other structures whose soundness rests
-/// on single-thread confinement rather than synchronisation.
-pub struct ThreadLocalToken<'brand> {
-    _invariant: InvariantLifetime<'brand>,
-    /// `*const ()` is `!Send + !Sync`, propagating thread-confinement to the token.
-    _not_threadsafe: PhantomData<*const ()>,
-}
-
-/// Token-family selector for thread-confined scopes.
-pub(crate) struct ThreadLocalFamily;
-
-impl TokenFamily for ThreadLocalFamily {
-    type Token<'brand>
-        = ThreadLocalToken<'brand>
-    where
-        Self: 'brand;
-
-    #[inline]
-    fn mint<'brand>(brand: FreshBrand<'brand>) -> Self::Token<'brand> {
-        Self::Token {
-            _invariant: brand.into_invariant(),
-            _not_threadsafe: PhantomData,
-        }
-    }
-}
-
-impl<'brand> ThreadLocalToken<'brand> {
-    /// Construct a thread-local token without proving brand uniqueness.
-    ///
-    /// # Safety
-    ///
-    /// The caller must guarantee no other `ThreadLocalToken<'brand>` for the
-    /// same `'brand` exists. Prefer [`thread_local_scope`].
-    #[inline]
-    #[must_use]
-    pub const unsafe fn new_unchecked() -> Self {
-        Self {
-            _invariant: PhantomData,
-            _not_threadsafe: PhantomData,
-        }
-    }
-}
-
-impl<'brand> fmt::Debug for ThreadLocalToken<'brand> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("ThreadLocalToken<'brand>")
-    }
-}
-
-impl<'brand> Sealed for &ThreadLocalToken<'brand> {}
-impl<'brand> Sealed for &mut ThreadLocalToken<'brand> {}
-
-// SAFETY: identical reasoning to `&ExclusiveToken` / `&mut ExclusiveToken`—the
-// unique owning token mediates brand-wide XOR through the borrow checker. The
-// extra `!Send` posture only narrows where the capability may be used.
-unsafe impl<'brand> ReadPermit<'brand> for &ThreadLocalToken<'brand> {}
-unsafe impl<'brand> ReadPermit<'brand> for &mut ThreadLocalToken<'brand> {}
-unsafe impl<'brand> WritePermit<'brand> for &mut ThreadLocalToken<'brand> {}
+define_brand_owner_token!(ThreadLocalToken, ThreadLocalFamily, ThreadLocalMarker, "ThreadLocalToken<'brand>");
 
 /// Open a thread-confined branding scope.
 ///
 /// The token handed to `f` is `!Send`, so neither it nor any cell it governs
-/// can be moved to another thread—confinement is proven at compile time.
+/// can be moved to another thread - confinement is proven at compile time.
 ///
 /// # Examples
 ///
@@ -97,8 +24,8 @@ unsafe impl<'brand> WritePermit<'brand> for &mut ThreadLocalToken<'brand> {}
 /// assert_eq!(total, 5);
 /// ```
 ///
-/// The token is `!Send`, so the compiler forbids moving the capability—or any
-/// cell governed by it—onto another thread:
+/// The token is `!Send`, so the compiler forbids moving the capability - or any
+/// cell governed by it - onto another thread:
 ///
 /// ```compile_fail
 /// use melinoe::sync::thread_local_scope;
@@ -109,5 +36,5 @@ unsafe impl<'brand> WritePermit<'brand> for &mut ThreadLocalToken<'brand> {}
 /// ```
 #[inline]
 pub fn thread_local_scope<R>(f: impl for<'brand> FnOnce(ThreadLocalToken<'brand>) -> R) -> R {
-    with_fresh_token::<ThreadLocalFamily, _, _>(f)
+    crate::token::with_fresh_token::<ThreadLocalFamily, _, _>(f)
 }

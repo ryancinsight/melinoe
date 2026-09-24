@@ -1,104 +1,8 @@
-//! [`SyncRegionToken`] — a brand whose access right may cross threads.
+//! [`SyncRegionToken`] - a brand whose access right may cross threads.
 
-use core::fmt;
-use core::marker::PhantomData;
+use crate::token::brand::{define_brand_owner_token, SyncRegionMarker};
 
-use crate::token::capability::private::Sealed;
-use crate::token::{
-    with_fresh_token, FreshBrand, InvariantLifetime, ReadPermit, SharedReadToken, TokenFamily,
-    WritePermit,
-};
-
-/// A brand owner that is `Send + Sync` and may be handed across thread
-/// boundaries to relocate exclusive write capability.
-///
-/// `SyncRegionToken` carries the same permit semantics as
-/// [`ExclusiveToken`](crate::ExclusiveToken) but names the *region* pattern
-/// explicitly: a contiguous branded region (e.g. an allocator's slab) whose
-/// ownership migrates between worker threads. Moving the token to a thread
-/// transfers the right to mutate every cell of the region; sharing `&token`
-/// across threads (via [`crate::MelinoeCell`]'s `Sync` impl) grants concurrent
-/// read access.
-///
-/// Because the token is move-only for writes yet freely borrowable for reads,
-/// the borrow checker enforces single-writer / multi-reader discipline over the
-/// whole region without a single atomic instruction or lock.
-///
-/// # Device-buffer ownership transfer
-///
-/// A device-buffer owner can store the backend's real buffer handle in a
-/// [`MelinoeCell`](crate::MelinoeCell) and require `SyncRegionToken<'brand>` by
-/// value on the host/device boundary. Moving the token into that boundary
-/// transfers the sole write capability to the code that records the stream or
-/// queue operation. Returning the token after submission or synchronization
-/// restores host-side exclusive capability; borrowing it immutably, or calling
-/// [`share`](Self::share), switches to shared readback/observer capability.
-pub struct SyncRegionToken<'brand> {
-    _invariant: InvariantLifetime<'brand>,
-}
-
-/// Token-family selector for cross-thread region scopes.
-pub(crate) struct SyncRegionFamily;
-
-impl TokenFamily for SyncRegionFamily {
-    type Token<'brand>
-        = SyncRegionToken<'brand>
-    where
-        Self: 'brand;
-
-    #[inline]
-    fn mint<'brand>(brand: FreshBrand<'brand>) -> Self::Token<'brand> {
-        Self::Token {
-            _invariant: brand.into_invariant(),
-        }
-    }
-}
-
-impl<'brand> SyncRegionToken<'brand> {
-    /// Construct a region token without proving brand uniqueness.
-    ///
-    /// # Safety
-    ///
-    /// The caller must guarantee no other `SyncRegionToken<'brand>` for the same
-    /// `'brand` exists. Prefer [`sync_region_scope`].
-    #[inline]
-    #[must_use]
-    pub const unsafe fn new_unchecked() -> Self {
-        Self {
-            _invariant: PhantomData,
-        }
-    }
-
-    /// Mint a `Copy`, `Send + Sync` [`SharedReadToken`] for concurrent reads.
-    ///
-    /// The returned token borrows `self` immutably for `'a`, so while any copy
-    /// is live the region token cannot be borrowed mutably and no write permit
-    /// can be formed. This is the supported way to fan a region's read
-    /// capability out across worker threads.
-    #[inline]
-    #[must_use]
-    pub fn share<'a>(&'a self) -> SharedReadToken<'a, 'brand> {
-        // SAFETY: `self` is borrowed immutably for `'a`; the produced token
-        // carries that window, preserving read/write exclusion for the brand.
-        unsafe { SharedReadToken::new_unchecked() }
-    }
-}
-
-impl<'brand> fmt::Debug for SyncRegionToken<'brand> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("SyncRegionToken<'brand>")
-    }
-}
-
-impl<'brand> Sealed for &SyncRegionToken<'brand> {}
-impl<'brand> Sealed for &mut SyncRegionToken<'brand> {}
-
-// SAFETY: the unique owning token mediates brand-wide XOR through the borrow
-// checker exactly as `ExclusiveToken` does; `Send + Sync` merely permits the
-// capability to travel across threads.
-unsafe impl<'brand> ReadPermit<'brand> for &SyncRegionToken<'brand> {}
-unsafe impl<'brand> ReadPermit<'brand> for &mut SyncRegionToken<'brand> {}
-unsafe impl<'brand> WritePermit<'brand> for &mut SyncRegionToken<'brand> {}
+define_brand_owner_token!(SyncRegionToken, SyncRegionFamily, SyncRegionMarker, "SyncRegionToken<'brand>");
 
 /// Open a thread-portable branding scope.
 ///
@@ -121,5 +25,5 @@ unsafe impl<'brand> WritePermit<'brand> for &mut SyncRegionToken<'brand> {}
 /// ```
 #[inline]
 pub fn sync_region_scope<R>(f: impl for<'brand> FnOnce(SyncRegionToken<'brand>) -> R) -> R {
-    with_fresh_token::<SyncRegionFamily, _, _>(f)
+    crate::token::with_fresh_token::<SyncRegionFamily, _, _>(f)
 }
