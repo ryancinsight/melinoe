@@ -22,7 +22,19 @@
 pub(crate) mod private {
     /// Sealing marker. Implemented only for the in-crate permit carriers.
     pub trait Sealed {}
+
+    /// Sealing marker for unique brand-owning tokens.
+    pub trait BrandOwner {}
 }
+
+/// Unique brand owner whose borrows carry Melinoe's read/write permits.
+///
+/// # Safety
+///
+/// Implementors must be the sole owning token for their `'brand`, such that a
+/// shared borrow proves read access and a mutable borrow proves exclusive write
+/// access for the entire branded region.
+pub(crate) unsafe trait BrandOwner<'brand>: private::BrandOwner {}
 
 /// Evidence that the bearer may obtain a shared (`&T`) view of any
 /// [`MelinoeCell`](crate::MelinoeCell) carrying the matching `'brand`.
@@ -49,3 +61,18 @@ pub unsafe trait ReadPermit<'brand>: private::Sealed {}
 /// `&mut` borrows of a brand's unique owning token, which the borrow checker
 /// proves disjoint from all other token borrows.
 pub unsafe trait WritePermit<'brand>: ReadPermit<'brand> {}
+
+impl<'brand, T> private::Sealed for &T where T: BrandOwner<'brand> {}
+
+impl<'brand, T> private::Sealed for &mut T where T: BrandOwner<'brand> {}
+
+// SAFETY: every `BrandOwner` implementor represents the unique token of its
+// brand, so a shared borrow is sufficient evidence that no mutable borrow of
+// that token, and hence no write permit, coexists for the same brand.
+unsafe impl<'brand, T> ReadPermit<'brand> for &T where T: BrandOwner<'brand> {}
+
+// SAFETY: a mutable borrow of a unique `BrandOwner` token excludes all other
+// shared and mutable borrows of that token, which is exactly the brand-wide XOR
+// guarantee required for both read and write access.
+unsafe impl<'brand, T> ReadPermit<'brand> for &mut T where T: BrandOwner<'brand> {}
+unsafe impl<'brand, T> WritePermit<'brand> for &mut T where T: BrandOwner<'brand> {}
