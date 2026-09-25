@@ -1,8 +1,40 @@
-//! [`SyncRegionToken`] - a brand whose access right may cross threads.
+//! [`SyncRegionToken`] — a brand whose access right may cross threads.
 
-use crate::token::brand::{define_brand_owner_token, SyncRegionMarker};
+use crate::token::{brand_owner_token, with_fresh_token};
 
-define_brand_owner_token!(SyncRegionToken, SyncRegionFamily, SyncRegionMarker, "SyncRegionToken<'brand>");
+brand_owner_token! {
+    /// A brand owner that is `Send + Sync` and may be handed across thread
+    /// boundaries to relocate exclusive write capability.
+    ///
+    /// `SyncRegionToken` carries the same permit semantics as
+    /// [`ExclusiveToken`](crate::ExclusiveToken) but names the *region* pattern
+    /// explicitly: a contiguous branded region (e.g. an allocator's slab) whose
+    /// ownership migrates between worker threads. Moving the token to a thread
+    /// transfers the right to mutate every cell of the region; sharing `&token`
+    /// across threads (via [`crate::MelinoeCell`]'s `Sync` impl) grants concurrent
+    /// read access.
+    ///
+    /// Because the token is move-only for writes yet freely borrowable for reads,
+    /// the borrow checker enforces single-writer / multi-reader discipline over the
+    /// whole region without a single atomic instruction or lock.
+    ///
+    /// # Device-buffer ownership transfer
+    ///
+    /// A device-buffer owner can store the backend's real buffer handle in a
+    /// [`MelinoeCell`](crate::MelinoeCell) and require `SyncRegionToken<'brand>` by
+    /// value on the host/device boundary. Moving the token into that boundary
+    /// transfers the sole write capability to the code that records the stream or
+    /// queue operation. Returning the token after submission or synchronization
+    /// restores host-side exclusive capability; borrowing it immutably, or calling
+    /// [`share`](Self::share), switches to shared readback/observer capability.
+    name: SyncRegionToken;
+    /// Token-family selector for cross-thread region scopes.
+    family: SyncRegionFamily;
+    marker_extra: ();
+    marker_init: ();
+    debug: "SyncRegionToken<'brand>";
+    share: yes;
+}
 
 /// Open a thread-portable branding scope.
 ///
@@ -25,5 +57,5 @@ define_brand_owner_token!(SyncRegionToken, SyncRegionFamily, SyncRegionMarker, "
 /// ```
 #[inline]
 pub fn sync_region_scope<R>(f: impl for<'brand> FnOnce(SyncRegionToken<'brand>) -> R) -> R {
-    crate::token::with_fresh_token::<SyncRegionFamily, _, _>(f)
+    with_fresh_token::<SyncRegionFamily, _, _>(f)
 }
