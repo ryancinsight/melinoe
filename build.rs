@@ -10,7 +10,6 @@ fn main() {
     println!("cargo:rustc-check-cfg=cfg(doc_cfg_active)");
     println!("cargo:rustc-check-cfg=cfg(nightly_tls_active)");
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-env-changed=RUSTC");
 
     let is_nightly_feature = env::var_os("CARGO_FEATURE_NIGHTLY").is_some();
     let is_docsrs = env::var_os("CARGO_CFG_DOCSRS").is_some();
