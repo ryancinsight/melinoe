@@ -8,10 +8,9 @@
 //!
 //! [invariant]: https://doc.rust-lang.org/nomicon/subtyping.html#variance
 
-use core::fmt;
 use core::marker::PhantomData;
 
-use super::SharedReadToken;
+use super::ExclusiveToken;
 
 /// A zero-sized marker that is **invariant** in `'brand` and unconditionally
 /// `Send + Sync`.
@@ -21,48 +20,27 @@ use super::SharedReadToken;
 /// `Sync`, so the marker never perturbs the auto-trait inference of its host.
 pub type InvariantLifetime<'brand> = PhantomData<fn(&'brand ()) -> &'brand ()>;
 
-/// Marker type that keeps the same invariant branding proof while preserving a
-/// token family's auto-trait posture.
-pub(crate) trait TokenMarker: 'static {
-    const DEBUG_NAME: &'static str;
-}
+/// Covariant lifetime marker for a shared-borrow window.
+pub(crate) type BorrowWindow<'a> = PhantomData<&'a ()>;
 
-/// The common zero-sized payload shared by every family-owned token.
-pub(crate) struct BrandToken<'brand, Marker> {
+/// Shared zero-sized branding witness used by owner and shared-read tokens.
+///
+/// The `'brand` proof is always present; `Extra` lets each token family thread
+/// its own auto-trait posture or borrow window through the same carrier
+/// without adding runtime state.
+#[derive(Clone, Copy)]
+pub(crate) struct BrandMarker<'brand, Extra = ()> {
     _invariant: InvariantLifetime<'brand>,
-    _marker: PhantomData<Marker>,
+    _extra: Extra,
 }
 
-impl<'brand, Marker> BrandToken<'brand, Marker> {
+impl<'brand, Extra> BrandMarker<'brand, Extra> {
     #[inline]
-    pub(crate) const fn new_unchecked() -> Self {
+    pub(crate) const fn new(extra: Extra) -> Self {
         Self {
             _invariant: PhantomData,
-            _marker: PhantomData,
+            _extra: extra,
         }
-    }
-
-    #[inline]
-    pub(crate) fn mint(brand: FreshBrand<'brand>) -> Self {
-        Self {
-            _invariant: brand.into_invariant(),
-            _marker: PhantomData,
-        }
-    }
-
-    #[inline]
-    #[must_use]
-    pub(crate) fn share<'a>(&'a self) -> SharedReadToken<'a, 'brand> {
-        // SAFETY: the promoted shared token stays within the lifetime of this
-        // borrowed owner token, so the write-capability exclusion proof remains
-        // intact for the entire sharing window.
-        unsafe { SharedReadToken::new_unchecked() }
-    }
-}
-
-impl<'brand, Marker: TokenMarker> fmt::Debug for BrandToken<'brand, Marker> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(Marker::DEBUG_NAME)
     }
 }
 
@@ -85,8 +63,11 @@ impl<'brand> FreshBrand<'brand> {
     }
 
     #[inline]
-    pub(crate) fn into_invariant(self) -> InvariantLifetime<'brand> {
-        self.invariant
+    pub(crate) fn into_marker<Extra>(self, extra: Extra) -> BrandMarker<'brand, Extra> {
+        BrandMarker {
+            _invariant: self.invariant,
+            _extra: extra,
+        }
     }
 }
 
@@ -99,50 +80,56 @@ pub(crate) trait TokenFamily {
     fn mint<'brand>(brand: FreshBrand<'brand>) -> Self::Token<'brand>;
 }
 
-/// Marker for a unique, move-only token family whose writes are thread-portable.
-pub(crate) struct ExclusiveMarker;
-
-impl TokenMarker for ExclusiveMarker {
-    const DEBUG_NAME: &'static str = "ExclusiveToken<'brand>";
-}
-
-/// Marker for a unique, move-only token family confined to its originating
-/// thread.
-pub(crate) struct ThreadLocalMarker {
-    _not_threadsafe: PhantomData<*const ()>,
-}
-
-impl TokenMarker for ThreadLocalMarker {
-    const DEBUG_NAME: &'static str = "ThreadLocalToken<'brand>";
-}
-
-/// Marker for a unique, move-only token family whose region ownership may be
-/// transferred across threads.
-pub(crate) struct SyncRegionMarker;
-
-impl TokenMarker for SyncRegionMarker {
-    const DEBUG_NAME: &'static str = "SyncRegionToken<'brand>";
-}
-
-macro_rules! define_brand_owner_token {
-    ($token:ident, $family:ident, $marker:ident, $debug_name:literal) => {
-        /// The unique, move-only owner of a brand's access rights.
+/// Define a brand-owner token family: the token struct, its [`TokenFamily`]
+/// selector, the unsafe constructor, its [`Debug`](core::fmt::Debug) impl, the
+/// two `BrandOwner` impls, and — for families that permit sharing — a `share`
+/// constructor yielding a [`SharedReadToken`](crate::token::SharedReadToken).
+///
+/// This is the single authoritative copy of the minting argument. Every owner
+/// token is laid out as an invariant brand proof plus an optional
+/// confinement-marker field, is minted from one [`FreshBrand`], and is
+/// witnessed as the brand's read/write XOR proof by exactly one `unsafe` impl.
+/// Folding the families here keeps that `unsafe` reasoning — and its SAFETY
+/// comment — from drifting between otherwise-identical copies.
+///
+/// * `name` / `family` — the public token type and its crate-private family
+///   selector, both documented with the supplied attributes.
+/// * `debug` — the [`Debug`](core::fmt::Debug) string for the token.
+/// * `marker_extra` / `marker_init` — the extra ZST payload threaded through
+///   the shared [`BrandMarker`] carrier to preserve a family's auto-trait
+///   posture (e.g. `PhantomData<*const ()>` for `!Send`).
+/// * `share` — `yes` to emit the `share` constructor, `no` to omit it.
+macro_rules! brand_owner_token {
+    (
+        $(#[$token_doc:meta])*
+        name: $token:ident;
+        $(#[$family_doc:meta])*
+        family: $family:ident;
+        marker_extra: $marker_extra:ty;
+        marker_init: $marker_init:expr;
+        debug: $debug_name:literal;
+        share: $share:tt;
+    ) => {
+        $(#[$token_doc])*
         pub struct $token<'brand> {
-            _brand: crate::token::brand::BrandToken<'brand, $marker>,
+            _marker: $crate::token::BrandMarker<'brand, $marker_extra>,
         }
 
+        $(#[$family_doc])*
         pub(crate) struct $family;
 
-        impl crate::token::brand::TokenFamily for $family {
+        impl $crate::token::TokenFamily for $family {
             type Token<'brand>
                 = $token<'brand>
             where
                 Self: 'brand;
 
             #[inline]
-            fn mint<'brand>(brand: crate::token::brand::FreshBrand<'brand>) -> Self::Token<'brand> {
+            fn mint<'brand>(
+                brand: $crate::token::FreshBrand<'brand>,
+            ) -> Self::Token<'brand> {
                 $token {
-                    _brand: crate::token::brand::BrandToken::mint(brand),
+                    _marker: brand.into_marker($marker_init),
                 }
             }
         }
@@ -152,37 +139,72 @@ macro_rules! define_brand_owner_token {
             ///
             /// # Safety
             ///
-            /// The caller must guarantee that no other instance of this token for
-            /// the same `'brand` exists for the lifetime of the returned value.
+            /// The caller must guarantee that no other token for the same
+            /// `'brand` exists for the lifetime of the returned value.
+            /// Violating this allows two write permits of one brand to coexist,
+            /// which is undefined behaviour.
             #[inline]
             #[must_use]
             pub const unsafe fn new_unchecked() -> Self {
                 Self {
-                    _brand: crate::token::brand::BrandToken::new_unchecked(),
+                    _marker: $crate::token::BrandMarker::new($marker_init),
                 }
-            }
-
-            /// Mint a `Copy`, read-only [`SharedReadToken`] tied to this borrow.
-            #[inline]
-            #[must_use]
-            pub fn share<'a>(&'a self) -> crate::token::SharedReadToken<'a, 'brand> {
-                self._brand.share()
             }
         }
 
         impl<'brand> core::fmt::Debug for $token<'brand> {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                self._brand.fmt(f)
+                f.write_str($debug_name)
             }
         }
 
-        impl<'brand> crate::token::capability::private::BrandOwner for $token<'brand> {}
+        impl<'brand> $crate::token::capability::private::BrandOwner for $token<'brand> {}
 
-        unsafe impl<'brand> crate::token::capability::BrandOwner<'brand> for $token<'brand> {}
+        // SAFETY: every family mints exactly one owner token for each fresh
+        // brand, so borrowing this token is the canonical proof of that brand's
+        // read/write XOR. A family's auto-trait posture only restricts where the
+        // unique proof may travel (e.g. `!Send` pins it to one thread); it never
+        // weakens the aliasing guarantees attached to borrowing the token.
+        unsafe impl<'brand> $crate::token::capability::BrandOwner<'brand> for $token<'brand> {}
+
+        $crate::token::brand_owner_token_share!($token, $share);
     };
 }
 
-pub(crate) use define_brand_owner_token;
+pub(crate) use brand_owner_token;
+
+/// Emit the `share` constructor for a brand-owner token, or nothing.
+///
+/// Split out of [`brand_owner_token`] so the `share` body — and its `unsafe`
+/// SAFETY argument — is written once, yet can be omitted for families whose
+/// confinement posture forbids fanning out read capability (e.g.
+/// `ThreadLocalToken`, which must not hand a `Send + Sync` read token across
+/// threads).
+macro_rules! brand_owner_token_share {
+    ($token:ident, yes) => {
+        impl<'brand> $token<'brand> {
+            /// Mint a `Copy`, read-only
+            /// [`SharedReadToken`](crate::token::SharedReadToken) tied to this
+            /// borrow.
+            ///
+            /// The returned token borrows `self` immutably for `'a`, so while
+            /// any copy of it is live the owning token cannot be borrowed
+            /// mutably and no write permit can be formed.
+            #[inline]
+            #[must_use]
+            pub fn share<'a>(&'a self) -> $crate::token::SharedReadToken<'a, 'brand> {
+                // SAFETY: `self` is borrowed immutably for `'a`; the produced
+                // token carries that borrow window in its phantom, so no `&mut`
+                // of the unique owner — and hence no write permit — can coexist
+                // for the same brand.
+                unsafe { $crate::token::SharedReadToken::new_unchecked() }
+            }
+        }
+    };
+    ($token:ident, no) => {};
+}
+
+pub(crate) use brand_owner_token_share;
 
 #[inline]
 fn with_fresh_brand<R, F>(f: F) -> R
@@ -241,13 +263,13 @@ where
 ///         let a = MelinoeCell::new(10_u64);
 ///         let b = MelinoeCell::new(32_u64);
 ///         let mut ma = a.borrow_mut(&mut ta);
-///         let mb = b.borrow_mut(&mut tb); // distinct brand => second live `&mut` is legal
+///         let mb = b.borrow_mut(&mut tb); // distinct brand ⇒ second live `&mut` is legal
 ///         *ma += *mb;
 ///         assert_eq!(*a.borrow(&ta), 42);
 ///     })
 /// });
 /// ```
 #[inline]
-pub fn brand_scope<R>(f: impl for<'brand> FnOnce(super::ExclusiveToken<'brand>) -> R) -> R {
+pub fn brand_scope<R>(f: impl for<'brand> FnOnce(ExclusiveToken<'brand>) -> R) -> R {
     with_fresh_token::<super::ExclusiveFamily, _, _>(f)
 }

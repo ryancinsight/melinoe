@@ -3,7 +3,7 @@
 use core::fmt;
 use core::marker::PhantomData;
 
-use super::brand::InvariantLifetime;
+use super::brand::{BorrowWindow, BrandMarker};
 use super::capability::private::Sealed;
 use super::capability::ReadPermit;
 
@@ -32,8 +32,7 @@ use super::capability::ReadPermit;
 /// no host/device write capability for the same brand can be formed.
 #[derive(Clone, Copy)]
 pub struct SharedReadToken<'a, 'brand> {
-    _invariant: InvariantLifetime<'brand>,
-    _window: PhantomData<&'a ()>,
+    _marker: BrandMarker<'brand, BorrowWindow<'a>>,
 }
 
 impl<'a, 'brand> SharedReadToken<'a, 'brand> {
@@ -50,8 +49,7 @@ impl<'a, 'brand> SharedReadToken<'a, 'brand> {
     #[must_use]
     pub(crate) unsafe fn new_unchecked() -> Self {
         Self {
-            _invariant: PhantomData,
-            _window: PhantomData,
+            _marker: BrandMarker::new(PhantomData),
         }
     }
 }

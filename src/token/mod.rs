@@ -14,7 +14,7 @@
 //! | [`ThreadLocalToken`](crate::sync::ThreadLocalToken) | one per brand | neither | read + write |
 //! | [`SyncRegionToken`](crate::sync::SyncRegionToken) | one per brand | both | read + write |
 
-pub(crate) mod brand;
+mod brand;
 pub(crate) mod capability;
 mod exclusive;
 mod shared;
@@ -22,7 +22,10 @@ mod shared;
 pub use brand::InvariantLifetime;
 
 pub use brand::brand_scope;
-pub(crate) use brand::with_fresh_token;
+pub(crate) use brand::{
+    brand_owner_token, brand_owner_token_share, with_fresh_token, BrandMarker, FreshBrand,
+    TokenFamily,
+};
 pub use capability::{ReadPermit, WritePermit};
 pub(crate) use exclusive::ExclusiveFamily;
 pub use exclusive::ExclusiveToken;

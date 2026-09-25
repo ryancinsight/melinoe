@@ -74,7 +74,7 @@ pub trait AtomicInt: Atomic {
     fn atomic_fetch_min(&self, value: Self::Value, order: Ordering) -> Self::Value;
 }
 
-macro_rules! impl_atomic_int {
+macro_rules! impl_atomic_base {
     ($atomic:ty, $value:ty) => {
         impl sealed::Sealed for $atomic {}
 
@@ -133,6 +133,12 @@ macro_rules! impl_atomic_int {
                 self.fetch_update(set_order, fetch_order, f)
             }
         }
+    };
+}
+
+macro_rules! impl_atomic_int {
+    ($atomic:ty, $value:ty) => {
+        impl_atomic_base!($atomic, $value);
 
         impl AtomicInt for $atomic {
             #[inline]
@@ -185,59 +191,4 @@ impl_atomic_int!(AtomicI8, i8);
 impl_atomic_int!(AtomicU16, u16);
 impl_atomic_int!(AtomicI16, i16);
 
-impl sealed::Sealed for AtomicBool {}
-
-impl Atomic for AtomicBool {
-    type Value = bool;
-
-    #[inline]
-    fn new_atomic(value: bool) -> Self {
-        Self::new(value)
-    }
-    #[inline]
-    fn atomic_load(&self, order: Ordering) -> bool {
-        self.load(order)
-    }
-    #[inline]
-    fn atomic_store(&self, value: bool, order: Ordering) {
-        self.store(value, order);
-    }
-    #[inline]
-    fn atomic_swap(&self, value: bool, order: Ordering) -> bool {
-        self.swap(value, order)
-    }
-    #[inline]
-    fn atomic_compare_exchange(
-        &self,
-        current: bool,
-        new: bool,
-        success: Ordering,
-        failure: Ordering,
-    ) -> Result<bool, bool> {
-        self.compare_exchange(current, new, success, failure)
-    }
-    #[inline]
-    fn atomic_get_mut(&mut self) -> &mut bool {
-        self.get_mut()
-    }
-    #[inline]
-    fn atomic_into_inner(self) -> bool {
-        self.into_inner()
-    }
-    #[inline]
-    fn value_ptr(&self) -> *mut bool {
-        core::ptr::from_ref(self).cast::<bool>().cast_mut()
-    }
-    #[inline]
-    fn atomic_fetch_update<F>(
-        &self,
-        set_order: Ordering,
-        fetch_order: Ordering,
-        f: F,
-    ) -> Result<bool, bool>
-    where
-        F: FnMut(bool) -> Option<bool>,
-    {
-        self.fetch_update(set_order, fetch_order, f)
-    }
-}
+impl_atomic_base!(AtomicBool, bool);
