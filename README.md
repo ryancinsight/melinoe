@@ -191,7 +191,7 @@ brand_scope(|mut token| {
 ```
 
 This reaches into a large branded payload (e.g. a slab block header) at zero
-copy; the [benchmarks](BENCHMARKS.md) contrast it with cloning the block out to
+copy; the [benchmarks](docs/BENCHMARKS.md) contrast it with cloning the block out to
 read one field. Verified sound under Miri (Stacked **and** Tree Borrows),
 including the disjoint-`&mut` split.
 
@@ -280,7 +280,7 @@ runtime `Ordering` methods remain available for data-dependent ordering.
 interop with APIs that already operate on `Atomic*`.
 
 Full methodology, all tables (five Criterion harnesses), and the honest caveats
-are in [`BENCHMARKS.md`](BENCHMARKS.md). Ratios are the signal; absolute figures
+are in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md). Ratios are the signal; absolute figures
 are hardware-dependent. The benchmark suite includes direct-vs-ZST `Cow` policy
 rows and `BrandedAtomic::as_atomic` raw-interop rows. Reproduce with
 `cargo bench`.

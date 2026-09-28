@@ -87,9 +87,10 @@ fn chunk_for_parts(len: usize, parts: usize) -> usize {
     if len == 0 {
         1
     } else {
-        // ceil(len / parts), clamped to >= 1. Written as
-        // `1 + (len - 1) / parts` because `usize::div_ceil` is not in the MSRV
-        // and `len + parts - 1` can overflow for adversarial inputs.
-        1 + (len - 1) / parts
+        // ceil(len / parts), clamped to >= 1. `usize::div_ceil` has been stable
+        // since Rust 1.73, below this crate's 1.81 MSRV, and computes the ceiling
+        // without the `len + parts - 1` form that can overflow for adversarial
+        // inputs — the same form `collections::deque` already uses.
+        len.div_ceil(parts)
     }
 }
