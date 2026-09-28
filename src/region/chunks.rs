@@ -31,17 +31,13 @@ impl<'a, 'brand, T> Iterator for ShardChunks<'a, 'brand, T> {
     /// Exact remaining shard count: `ceil(remaining / chunk)`, the single source
     /// of truth the partition driver reserves worker capacity from.
     ///
-    /// `chunk` is `>= 1` (clamped in [`WriterShard::chunks`]), so the division is
-    /// total. Written as `1 + (rem - 1) / chunk` to compute the ceiling without
-    /// the `rem + chunk - 1` form, which can overflow for adversarial `rem`.
+    /// `chunk` is `>= 1` (clamped in [`WriterShard::chunks`]), so it delegates
+    /// to the crate's single overflow-safe ceiling, `partition_count(len,
+    /// chunk)`, shared with [`ParChunks::len`](super::ParChunks::len).
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let remaining = self.rest.as_ref().map_or(0, |s| s.len());
-        let shards = if remaining == 0 {
-            0
-        } else {
-            1 + (remaining - 1) / self.chunk
-        };
+        let shards = super::partition_count(remaining, self.chunk);
         (shards, Some(shards))
     }
 }

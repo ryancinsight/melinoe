@@ -9,6 +9,7 @@ use std::vec::Vec;
 
 use super::driver_core::drive;
 use super::plan::PartitionPlan;
+use crate::region::partition_count;
 
 /// Split `slice` into `parts` disjoint shared shards and run `f` on each concurrently,
 /// returning the per-shard results in partition order.
@@ -36,11 +37,7 @@ where
     let chunk = plan.resolve(slice.len());
     let chunk_size = chunk.max(1);
     let slice_len = slice.len();
-    let num_chunks = if slice_len == 0 {
-        0
-    } else {
-        1 + (slice_len - 1) / chunk_size
-    };
+    let num_chunks = partition_count(slice_len, chunk_size);
     if num_chunks == 0 {
         return Vec::new();
     }

@@ -108,17 +108,12 @@ impl<'a, 'brand, T> ParChunks<'a, 'brand, T> {
     ///
     /// This is the exact count of valid indices for
     /// [`get_unchecked_chunk`](Self::get_unchecked_chunk) and the value a driver
-    /// reserves worker capacity from. `chunk` is `>= 1`, so the division is
-    /// total; written as `1 + (len - 1) / chunk` to compute the ceiling without
-    /// the `len + chunk - 1` form, which can overflow for adversarial `len`.
+    /// reserves worker capacity from. `chunk` is `>= 1`, so it delegates to the
+    /// crate's single overflow-safe ceiling, `partition_count(len, chunk)`.
     #[inline]
     #[must_use]
     pub const fn len(&self) -> usize {
-        if self.len == 0 {
-            0
-        } else {
-            1 + (self.len - 1) / self.chunk
-        }
+        super::partition_count(self.len, self.chunk)
     }
 
     /// Whether the region is empty (no partitions).

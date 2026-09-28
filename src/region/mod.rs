@@ -49,7 +49,9 @@
 mod chunks;
 mod par_chunks;
 mod shard;
+mod tiling;
 
 pub use chunks::ShardChunks;
 pub use par_chunks::ParChunks;
 pub use shard::WriterShard;
+pub(crate) use tiling::partition_count;
