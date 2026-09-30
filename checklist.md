@@ -1,6 +1,6 @@
 # Checklist — melinoe
 
-Target version: 0.9.0
+Target version: 0.10.0
 
 ## ATLAS-MELINOE-PARTITION-PANIC-ORACLE-2026-08-20 [patch] — complete
 
@@ -120,7 +120,7 @@ Target version: 0.9.0
   Nextest; strict Clippy on both feature surfaces; 31 doctests; rustdoc;
   rustfmt; and diff checks.
 
-## Current micro-sprint (0.9.0)
+## Current micro-sprint (0.10.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with an unsafe
   `ParallelExecutor` trait; reject unsafe-at-every-registration and trait-object
@@ -131,7 +131,7 @@ Target version: 0.9.0
 - [x] [major] Migrate Melinoe contracts and Moirai's registration boundary.
 - [x] Evidence: workspace Clippy; partition tests including a non-zero-sized
   executor; doctests; rustdoc; focused registered-executor Miri tests; and
-  `cargo semver-checks` classifying 0.8.0 to 0.9.0 as a major change.
+  `cargo semver-checks` classifying 0.9.0 to 0.10.0 as a major change.
 
 ## Prior micro-sprint (0.8.0)
 
