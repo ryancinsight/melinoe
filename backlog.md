@@ -147,7 +147,7 @@ CUDA, with mnemosyne device pools) wants compile-time proofs for device-buffer o
   runs. Pre-existing on `origin/main`; unrelated to the book/`mdbook-test`
   change.
 
-- No Melinoe-local item remains in progress; the 0.9.0 executor capability is
+- No Melinoe-local item remains in progress; the 0.10.0 executor capability is
   ready for upstream publication and downstream Moirai lock refresh.
 
 ## Next

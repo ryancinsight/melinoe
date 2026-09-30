@@ -6,6 +6,8 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-09-30
+
 ### Changed
 
 - [major] The parallel-executor seam is now an **unsafe trait** rather than a bare
@@ -21,13 +23,6 @@ All notable changes to `melinoe` are documented here. The format follows
   directly. The associated entry point has no receiver, so registration never
   fabricates scheduler storage. See "Breaking" below for the removed surface.
 
-- [minor] Added generic branded-vector generation through
-  `BrandedVec::from_fn` and `collections::with_generated`. The latter owns the
-  fresh higher-ranked brand for the callback, so generated storage and its
-  exclusive token cannot escape while the callback result can. Added
-  `into_boxed_cells` for the zero-copy branded-storage handoff used by Themis
-  placement containers.
-
 - [patch] Harden registered-partition panic recovery against mutex poisoning:
   `sync::scoped::partition::driver_core` recovers the first captured panic
   payload with `PoisonError::into_inner` both when task wrappers report a
@@ -36,6 +31,7 @@ All notable changes to `melinoe` are documented here. The format follows
   the payload mutex was poisoned; the first panic cause is now always
   preserved. A focused regression poisons the payload mutex, reports a second
   panic, and verifies the first payload remains recoverable.
+
 - [patch] `BrandedVecDeque::as_slices`/`as_mut_slices` now route the ring-buffer
   segment cast through `MelinoeCell::slice_as_unsafe_cell`, the crate's SSOT for
   interior-mutability-provenance-preserving pointer conversion, instead of a
@@ -51,6 +47,31 @@ All notable changes to `melinoe` are documented here. The format follows
 
 - [patch] Added a GitHub Release workflow that validates crate identity and
   package contents before publishing through crates.io Trusted Publishing.
+
+### Breaking
+
+- [major] `ParallelExecutor` is now a trait, not the `#[repr(transparent)]`
+  function-pointer newtype it was in 0.9.0. Registration takes a type
+  parameter — `register_parallel_executor::<MyExecutor>()` — in place of a
+  constructed value, and `ParallelExecutor::new` no longer exists. A
+  registrable value is available as `Executor` (built with `Executor::new::<E>()`)
+  for integrations that must hold one. Implementing the trait is `unsafe`,
+  because the contract's exact-once and blocking-completion obligations are
+  load-bearing for Melinoe's `MaybeUninit` out-buffer. The `ParallelExecutorFn`
+  alias retired in 0.9.0 remains retired, with no compatibility shim.
+
+### Added
+
+- [minor] Added generic branded-vector generation through
+  `BrandedVec::from_fn` and `collections::with_generated`. The latter owns the
+  fresh higher-ranked brand for the callback, so generated storage and its
+  exclusive token cannot escape while the callback result can. Added
+  `into_boxed_cells` for the zero-copy branded-storage handoff used by Themis
+  placement containers.
+
+## [0.9.0] — 2026-07-29
+
+### Changed
 
 - [patch] Added crate-root `#![deny(missing_docs)]` attribute to align with the
   atlas stack convention (aequitas, harmonia, horae, themis). The lint was
@@ -68,15 +89,11 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ### Breaking
 
-- [major] `ParallelExecutor` is now a trait, not the `#[repr(transparent)]`
-  function-pointer newtype it was in 0.9.0. Registration takes a type
-  parameter — `register_parallel_executor::<MyExecutor>()` — in place of a
-  constructed value, and `ParallelExecutor::new` no longer exists. A
-  registrable value is available as `Executor` (built with `Executor::new::<E>()`)
-  for integrations that must hold one. Implementing the trait is `unsafe`,
-  because the contract's exact-once and blocking-completion obligations are
-  load-bearing for Melinoe's `MaybeUninit` out-buffer. The `ParallelExecutorFn`
-  alias retired in 0.9.0 remains retired, with no compatibility shim.
+- [major] Replaced the `ParallelExecutorFn` alias with the zero-cost
+  `ParallelExecutor` capability. Integrators construct the capability through
+  `unsafe { ParallelExecutor::new(executor) }`, discharging exact-once index,
+  blocking-completion, and context-lifetime obligations once; safe registration
+  accepts only the validated value. No compatibility alias remains.
 
 ### Added
 

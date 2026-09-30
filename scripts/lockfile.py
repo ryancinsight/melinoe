@@ -42,6 +42,7 @@ discovery.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -55,6 +56,7 @@ MANIFEST = REPOSITORY / "Cargo.toml"
 # Any first-party dependency resolves through one of these. A lock with none of
 # them has been flattened by the overlay.
 FIRST_PARTY_SOURCE = re.compile(r'^source = "git\+https://github\.com/ryancinsight/', re.M)
+FIRST_PARTY_GIT = "git+https://github.com/ryancinsight/"
 
 
 def run_outside_the_overlay(arguments: list[str]) -> subprocess.CompletedProcess[str]:
@@ -81,13 +83,36 @@ def run_outside_the_overlay(arguments: list[str]) -> subprocess.CompletedProcess
         )
 
 
+def declared_first_party_dependencies() -> int | None:
+    """Count dependencies the workspace declares on first-party git sources.
+
+    `cargo metadata --no-deps` reads the manifests alone, so a flattened or
+    missing lock cannot influence it. A workspace declaring none (this crate
+    has no first-party dependencies) legitimately has a lock with no
+    first-party sources, and the flattening diagnosis must not fire on it.
+    `None` when cargo cannot read the workspace; the --locked resolution
+    below reports that.
+    """
+    completed = run_outside_the_overlay(["metadata", "--no-deps", "--format-version", "1"])
+    if completed.returncode != 0:
+        return None
+    packages = json.loads(completed.stdout)["packages"]
+    return sum(
+        1
+        for package in packages
+        for dependency in package["dependencies"]
+        if (dependency.get("source") or "").startswith(FIRST_PARTY_GIT)
+    )
+
+
 def check() -> int:
     if not LOCKFILE.is_file():
         print(f"error: {LOCKFILE} does not exist", file=sys.stderr)
         return 1
 
     sources = len(FIRST_PARTY_SOURCE.findall(LOCKFILE.read_text(encoding="utf-8")))
-    if sources == 0:
+    declared = declared_first_party_dependencies()
+    if sources == 0 and declared != 0:
         print(
             "error: Cargo.lock contains no first-party git sources.\n"
             "\n"
@@ -120,7 +145,10 @@ def check() -> int:
         )
         return 1
 
-    print(f"Cargo.lock resolves under --locked; {sources} first-party git sources.")
+    if declared == 0:
+        print("Cargo.lock resolves under --locked; no first-party dependencies declared.")
+    else:
+        print(f"Cargo.lock resolves under --locked; {sources} first-party git sources.")
     return 0
 
 
@@ -158,6 +186,9 @@ def check_staged() -> int:
         return 0
 
     if len(FIRST_PARTY_SOURCE.findall(blob.stdout)) > 0:
+        return 0
+
+    if declared_first_party_dependencies() == 0:
         return 0
 
     print(

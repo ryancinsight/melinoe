@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Change class: [major]. Delivered in 0.9.0.
+Change class: [major]. Delivered in 0.10.0.
 
 ## Context
 
@@ -27,6 +27,10 @@ an implementation cannot observe fabricated storage or rely on a receiver
 lifetime that Melinoe does not own. Moirai discharges the exact-once indexed
 dispatch, blocking completion, and context-lifetime proof at its bridge. No old
 alias, conversion shim, or parallel registration path remains.
+
+### Revision — 2026-09-30
+
+Release 0.9.0 shipped the earlier newtype form (`unsafe { ParallelExecutor::new(executor) }`); the trait form decided here first ships in 0.10.0 (breaking: `ParallelExecutor` is a trait, registration takes a type parameter).
 
 ### Revision — 2026-09-13
 
