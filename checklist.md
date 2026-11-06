@@ -1,6 +1,14 @@
 # Checklist — melinoe
 
-Target version: 0.10.0
+Target version: 0.10.1
+
+## Zero-sized partition bounds (0.10.1) [patch] — in progress
+
+- [x] Reproduce overflow in indexed shards and the safe shared-read driver.
+- [x] Use one clamped range calculation for indexed, read, and write shards;
+      cover the final zero-sized shard and out-of-range internal indices.
+- [ ] Complete normal exact-revision checks, Miri, independent review, and
+      hosted delivery gates before merging or publishing.
 
 ## ATLAS-MELINOE-PARTITION-PANIC-ORACLE-2026-08-20 [patch] — complete
 
@@ -120,7 +128,7 @@ Target version: 0.10.0
   Nextest; strict Clippy on both feature surfaces; 31 doctests; rustdoc;
   rustfmt; and diff checks.
 
-## Current micro-sprint (0.10.0)
+## Prior micro-sprint (0.10.0)
 
 - [x] [major] Record ADR 0001: replace the raw executor alias with an unsafe
   `ParallelExecutor` trait; reject unsafe-at-every-registration and trait-object
