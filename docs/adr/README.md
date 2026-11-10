@@ -10,3 +10,4 @@
 | ADR | Title | Status |
 | --- | ----- | ------ |
 | [0001](0001-parallel-executor-capability.md) | Parallel executor capability | Accepted |
+| [0002](0002-release-scope-1-0.md) | Melinoe release scope for 1.0 | Accepted |
