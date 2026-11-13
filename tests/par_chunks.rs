@@ -41,6 +41,21 @@ fn par_chunks_zero_chunk_is_clamped_to_one() {
     });
 }
 
+/// A zero-sized slice can have `usize::MAX` elements without allocating that
+/// many bytes. The final valid chunk must be clamped before its end overflows.
+#[test]
+fn par_chunks_clamps_final_large_zero_sized_partition() {
+    let mut values = vec![(); usize::MAX];
+    let cells = MelinoeCell::from_mut_slice(&mut values);
+    let chunk = usize::MAX / 2 + 1;
+    let par = WriterShard::new(cells).par_chunks(chunk);
+
+    assert_eq!(par.len(), 2);
+    // SAFETY: 1 is a valid index, requested once; no other shard is live.
+    let final_shard = unsafe { par.get_unchecked_chunk(1) };
+    assert_eq!(final_shard.len(), usize::MAX - chunk);
+}
+
 /// Partition property: fetching every index in `0..len()` yields shards whose
 /// lengths sum to `n` and whose global offsets tile `0..n` exactly once (no gap,
 /// no overlap). Each index is requested exactly once, satisfying the accessor

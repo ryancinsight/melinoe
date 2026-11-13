@@ -6,6 +6,15 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- [patch] Clamp indexed, shared-read and `BrandedVecDeque` partition bounds
+  without overflowing for very large zero-sized regions. The final shard now
+  covers exactly the remaining elements in both debug and optimized builds.
+  The deque shard planner previously overflowed (debug panic) for a
+  zero-sized deque near `usize::MAX` long, and looped without end when
+  overflow checks were off; it now shares the slice drivers' bounds.
+
 ## [0.10.0] — 2026-09-30
 
 ### Changed

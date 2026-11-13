@@ -2,6 +2,8 @@
 use alloc::vec::Vec;
 
 #[cfg(feature = "std")]
+use crate::region::{partition_count, partition_range};
+#[cfg(feature = "std")]
 use crate::MelinoeCell;
 #[cfg(feature = "std")]
 use crate::{ReadPermit, WriterShard};
@@ -34,12 +36,11 @@ impl DequeShardPlan {
     fn from_lengths(front_len: usize, back_len: usize, plan: crate::sync::PartitionPlan) -> Self {
         let total_len = front_len + back_len;
         let chunk_len = plan.chunk_len_for(total_len).max(1);
-        let num_chunks = total_len.div_ceil(chunk_len);
+        let num_chunks = partition_count(total_len, chunk_len);
         let mut shards = Vec::with_capacity(num_chunks * 2);
-        let mut start = 0;
 
-        while start < total_len {
-            let end = (start + chunk_len).min(total_len);
+        for index in 0..num_chunks {
+            let (start, end) = partition_range(total_len, chunk_len, index);
             if start < front_len {
                 let front_end = end.min(front_len);
                 shards.push(DequeShard {
@@ -58,7 +59,6 @@ impl DequeShardPlan {
                     len: end - start.max(front_len),
                 });
             }
-            start = end;
         }
 
         Self { shards }
