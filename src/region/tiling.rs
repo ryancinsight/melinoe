@@ -17,3 +17,16 @@ pub(crate) const fn partition_count(len: usize, chunk: usize) -> usize {
         1 + (len - 1) / chunk
     }
 }
+
+/// Bounds of a partition, clamped to the region for all indices.
+///
+/// Saturation before clamping is necessary for zero-sized elements: their
+/// slices may have lengths near `usize::MAX` without allocating storage.
+#[inline]
+pub(crate) const fn partition_range(len: usize, chunk: usize, index: usize) -> (usize, usize) {
+    let start = index.saturating_mul(chunk);
+    let end = start.saturating_add(chunk);
+    let start = if start < len { start } else { len };
+    let end = if end < len { end } else { len };
+    (start, end)
+}

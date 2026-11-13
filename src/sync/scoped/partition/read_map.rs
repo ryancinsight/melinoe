@@ -9,7 +9,7 @@ use std::vec::Vec;
 
 use super::driver_core::drive;
 use super::plan::PartitionPlan;
-use crate::region::partition_count;
+use crate::region::{partition_count, partition_range};
 
 /// Split `slice` into `parts` disjoint shared shards and run `f` on each concurrently,
 /// returning the per-shard results in partition order.
@@ -43,8 +43,7 @@ where
     }
 
     drive(num_chunks, |index| {
-        let start = index * chunk_size;
-        let end = (start + chunk_size).min(slice_len);
+        let (start, end) = partition_range(slice_len, chunk_size, index);
         // `drive` runs each `index` in `0..num_chunks` at most once, and
         // `num_chunks = ceil(slice_len / chunk_size)`, so `start < slice_len` and
         // the ranges tile `0..slice_len` disjointly. A shared `&[T]` sub-slice

@@ -128,13 +128,7 @@ impl<'a, 'brand, T> ParChunks<'a, 'brand, T> {
     /// crate to check the partition property without materializing a shard.
     #[inline]
     pub(crate) const fn range(&self, index: usize) -> (usize, usize) {
-        let start = index * self.chunk;
-        let end = start + self.chunk;
-        // `min` on the end clamps the final partition; `start` may exceed `len`
-        // for out-of-range indices, in which case `start >= end` (empty range).
-        let end = if end < self.len { end } else { self.len };
-        let start = if start < self.len { start } else { self.len };
-        (start, end)
+        super::partition_range(self.len, self.chunk, index)
     }
 
     /// Return the disjoint [`WriterShard`] for partition `index`, sharing the
@@ -230,5 +224,16 @@ mod parity {
                 );
             }
         }
+    }
+
+    #[test]
+    fn out_of_range_indices_clamp_without_overflow() {
+        let mut cells: [MelinoeCell<'_, u8>; 3] = core::array::from_fn(|_| MelinoeCell::new(0));
+        let par = ParChunks::new(&mut cells, 2);
+
+        assert_eq!(par.range(0), (0, 2));
+        assert_eq!(par.range(1), (2, 3));
+        assert_eq!(par.range(2), (3, 3));
+        assert_eq!(par.range(usize::MAX), (3, 3));
     }
 }

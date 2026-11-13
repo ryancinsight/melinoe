@@ -6,6 +6,12 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- [patch] Clamp indexed read and write partition bounds without overflowing
+  for very large zero-sized slices. The final shard now covers exactly the
+  remaining elements in both debug and optimized builds.
+
 ## [0.10.0] — 2026-09-30
 
 ### Changed
