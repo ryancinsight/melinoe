@@ -100,7 +100,7 @@ where
     }
 
     drive(num_chunks, |index| {
-        let start = index * chunk_size;
+        let (start, _) = par.range(index);
         // SAFETY: `drive` invokes each `index` in `0..num_chunks` at most once
         // (both the registered-executor and scoped-thread paths uphold this), and
         // `num_chunks == par.len()`, so every `index` is in range and requested

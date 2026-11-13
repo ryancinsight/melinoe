@@ -83,8 +83,8 @@ can request partition `c` on demand without threading `&mut` state through a
 sequence.
 
 The final partition is clipped to the region's length. This also holds for
-zero-sized elements, whose slices can have very large logical lengths without
-allocating element storage.
+zero-sized elements, whose slices and deques can have very large logical
+lengths without allocating element storage.
 
 ## partition_for_each_with: lock-free parallel writes
 
