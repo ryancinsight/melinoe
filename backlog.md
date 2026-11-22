@@ -1,5 +1,11 @@
 # Backlog — melinoe
 
+<a id="melinoe-stable-qualification"></a>
+## MELINOE-STABLE-QUALIFICATION — melinoe stable-release qualification [patch] — todo
+- priority: verification; milestone: M-branded-collections; basis: `e2d93b806a26`.
+- Outcome: Qualify branded collections and disjoint parallel partitions. Follow the [release scope](docs/adr/0002-release-scope-1-0.md) and [milestone exits](backlog/milestones.md).
+- Acceptance and sequence: [stable-release checklist](checklist.md#stable-release-checklist).
+
 ## ATLAS-MELINOE-PARTITION-PANIC-ORACLE-2026-08-20 — Assert recovered panic values [patch, complete]
 
 **Finding:** the panic-recovery regression used `is_err()` for both panic
