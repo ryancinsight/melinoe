@@ -2,12 +2,14 @@
 
 ## Stable release checklist
 
-Basis `e2d93b806a26`, representative manifest `melinoe 0.10.0`. Target 1.0.0. [Backlog item](backlog.md#melinoe-stable-qualification).
+Basis `97a3e32fd910`, representative manifest `melinoe 0.10.0`. Target 1.0.0. [Backlog item](backlog.md#melinoe-stable-qualification).
 
 - [ ] [patch] Run branded_vec, branded_deque, partition and par_chunks. Verify that writes to disjoint partitions produce the exact expected elements and that an invalid borrow or overlapping mutation is rejected.
 - [ ] [patch] Replay conditional_atomics and the documented examples under their supported configurations. Record safety-tool applicability and the result for the same source as the memory consumer.
 - [ ] [major] Freeze the permit and collection contracts after a fresh integration with Mnemosyne or Moirai, the package dry run and compatibility review.
-- [ ] [patch] Run the [release scope](docs/adr/0002-release-scope-1-0.md) exits and attach reviewed, exact-revision evidence for this member’s [Atlas qualification criteria](https://github.com/ryancinsight/atlas/blob/17b0124a7548ad81e817284afc5cb115c1d1bc78/docs/parity/repositories.json).
+- [ ] [patch] **0.10.1 if a correctness repair is needed.** Partition a branded collection into disjoint mutable chunks. Compare the resulting elements with sequential writes and confirm a borrow cannot escape its originating brand. [Source and baseline](gap_audit.md#incremental-release-baseline).
+- [ ] [minor] **0.11.0.** Qualify branded vectors, deques and parallel chunks at empty, singleton and uneven partition boundaries. Check the compile-fail and run-time contracts separately.
+- [ ] [major] **1.0.0-beta.1 → 1.0.0-rc.1 → 1.0.0.** Freeze the supported surface at beta. A downstream collection user gets the same sequence of values under sequential and supported parallel access. Repeat the applicable exits on the exact RC before stable promotion. Run the [release scope](docs/adr/0002-release-scope-1-0.md) exits and attach reviewed, exact-revision evidence for this member’s [Atlas qualification criteria](https://github.com/ryancinsight/atlas/blob/17b0124a7548ad81e817284afc5cb115c1d1bc78/docs/parity/repositories.json).
 
 Target version: 0.10.0
 
