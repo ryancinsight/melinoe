@@ -1,5 +1,11 @@
 # Gap Audit — melinoe
 
+## Incremental release baseline
+
+Reviewed [melinoe 0.10.0](Cargo.toml) at [97a3e32fd910](https://github.com/ryancinsight/melinoe/tree/97a3e32fd9107dd8a347f4aa0a0859aae79621a7). The exact version appears in the [registry](https://crates.io/crates/melinoe/0.10.0).
+
+The next [patch] checkpoint uses [par chunks](tests/par_chunks.rs). [Target version and acceptance criteria](checklist.md#stable-release-checklist).
+
 Audit date: 2026-06-04. Scope: correctness/soundness, performance, memory
 efficiency, branding capability surface, testing, benchmarking, documentation.
 

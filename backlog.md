@@ -2,8 +2,8 @@
 
 <a id="melinoe-stable-qualification"></a>
 ## MELINOE-STABLE-QUALIFICATION — melinoe stable-release qualification [patch] — todo
-- priority: verification; milestone: M-branded-collections; basis: `e2d93b806a26`.
-- Outcome: Qualify branded collections and disjoint parallel partitions. Follow the [release scope](docs/adr/0002-release-scope-1-0.md) and [milestone exits](backlog/milestones.md).
+- priority: verification; milestone: M-branded-collections; basis: `97a3e32fd910`.
+- Outcome: Qualify branded collections and disjoint parallel partitions. Follow the [release scope](docs/adr/0002-release-scope-1-0.md) and [milestone exits](backlog/milestones.md). Planning targets for `melinoe` are 0.10.1 if a correctness repair is needed, then 0.11.0, then 1.0.0. Verification alone can advance the current version.
 - Acceptance and sequence: [stable-release checklist](checklist.md#stable-release-checklist).
 
 ## ATLAS-MELINOE-PARTITION-PANIC-ORACLE-2026-08-20 — Assert recovered panic values [patch, complete]
