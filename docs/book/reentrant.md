@@ -2,17 +2,17 @@
 
 Some exclusive state is **ambient** rather than lexically scoped: a thread's
 allocator slot is touched on every allocation across the thread's whole
-lifetime, so it cannot live inside a single [`brand_scope`] closure. The
+lifetime, so it cannot live inside a single `brand_scope` closure. The
 classic guard for such state is a hand-checked re-entrancy boolean
 (`is_allocating`) wrapping a raw `UnsafeCell` — correct only by audit. Melinoe
 offers two typed replacements, both gating with a single `!Sync` flag:
-[`GuardedCell`] (yields `&mut T` directly) and [`ReentrancyCell`] (yields a
+`GuardedCell` (yields `&mut T` directly) and `ReentrancyCell` (yields a
 fresh-brand token). Both refuse re-entry rather than aliasing and clear their
 flag on panic.
 
 ## GuardedCell — owned ambient state
 
-[`GuardedCell<T>`] owns a value and hands out one exclusive `&mut T` at a time
+`GuardedCell<T>` owns a value and hands out one exclusive `&mut T` at a time
 from `&self`:
 
 ```rust
@@ -31,7 +31,7 @@ assert_eq!(
 `enter` checks a single `bool` flag once (the unavoidable runtime gate at the
 ambient boundary) and yields a borrow-checked `&mut T`; the `&mut` *is* the
 compile-time exclusivity proof, and a nested `enter` returns
-[`Reentered`] instead of aliasing. The flag is cleared by a drop guard even if
+`Reentered` instead of aliasing. The flag is cleared by a drop guard even if
 the closure unwinds, so a panic cannot poison the cell.
 
 The runtime cost is one predictable branch at entry — the `RefCell` difference
@@ -48,8 +48,8 @@ statically known not to re-enter; `get_mut(&mut self)` needs no check at all;
 
 ## ReentrancyCell — ambient state re-branded
 
-[`ReentrancyCell`] is the same gate but yields a **fresh-brand
-[`ExclusiveToken`]** instead of a `&mut T`:
+`ReentrancyCell` is the same gate but yields a **fresh-brand
+`ExclusiveToken`** instead of a `&mut T`:
 
 ```rust
 extern crate melinoe;

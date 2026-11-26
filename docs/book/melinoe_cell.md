@@ -1,8 +1,8 @@
 # 4. MelinoeCell and Borrow Guards
 
-[`MelinoeCell<'brand, T>`] is the storage counterpart to the token system: it
+`MelinoeCell<'brand, T>` is the storage counterpart to the token system: it
 holds a `T` but exposes it solely through methods that demand a
-[`ReadPermit`] or [`WritePermit`] for the *same* `'brand`.
+`ReadPermit` or `WritePermit` for the *same* `'brand`.
 
 ## Layout and cost
 
@@ -25,16 +25,16 @@ bare pointer dereference: there is **no runtime flag and no `borrow` panic
 path**, unlike `RefCell`. Because the cell yields real `&T`/`&mut T`
 references, it also works with non-`Copy` payloads, unlike `Cell`.
 
-The transparent layout is what makes [`MelinoeCell::from_mut`] possible:
+The transparent layout is what makes `MelinoeCell::from_mut` possible:
 reborrow a `&mut T` as `&mut MelinoeCell<'_, T>` in place — the basis for
 branding pre-existing allocator storage without moving it.
 
 ## Borrowing
 
-- [`borrow(&token)`](MelinoeCell::borrow) takes any `ReadPermit` and returns a
-  [`MelinoeRef<'_, 'brand, T>`] — a shared guard that `Deref`s to `T`.
-- [`borrow_mut(&mut token)`](MelinoeCell::borrow_mut) takes a `WritePermit` and
-  returns a [`MelinoeMut<'_, 'brand, T>`] — an exclusive guard that
+- [`borrow(&token)`](https://docs.rs/melinoe/latest/melinoe/struct.MelinoeCell.html#method.borrow) takes any `ReadPermit` and returns a
+  `MelinoeRef<'_, 'brand, T>` — a shared guard that `Deref`s to `T`.
+- [`borrow_mut(&mut token)`](https://docs.rs/melinoe/latest/melinoe/struct.MelinoeCell.html#method.borrow_mut) takes a `WritePermit` and
+  returns a `MelinoeMut<'_, 'brand, T>` — an exclusive guard that
   `DerefMut`s to `T`.
 
 Both guards are `#[repr(transparent)]` over the underlying reference, so they
@@ -88,7 +88,7 @@ collide with field/method access reached through `Deref`/`DerefMut`.
 
 ## map_split: two disjoint projections from one write permit
 
-[`MelinoeMut::map_split`] yields two **non-overlapping** `&mut` projections
+`MelinoeMut::map_split` yields two **non-overlapping** `&mut` projections
 from a single write permit — e.g. two fields of a struct, or the two halves of
 `slice::split_at_mut`. Both live simultaneously because the compiler can see
 they point to disjoint memory. Without this primitive you would need to drop
@@ -117,7 +117,7 @@ shared sub-guards over distinct parts of the contents.
 ## Cell family: zero-copy slice views
 
 Reading or writing a branded slab one cell at a time costs a bounds check and a
-permit pass per element and defeats autovectorization. [`CellSliceExt`] exposes
+permit pass per element and defeats autovectorization. `CellSliceExt` exposes
 the whole `[MelinoeCell<'brand, T>]` as a plain `&[T]` / `&mut [T]` once a
 permit is presented:
 
