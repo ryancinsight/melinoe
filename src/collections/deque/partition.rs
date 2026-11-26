@@ -37,7 +37,10 @@ impl DequeShardPlan {
         let total_len = front_len + back_len;
         let chunk_len = plan.chunk_len_for(total_len).max(1);
         let num_chunks = partition_count(total_len, chunk_len);
-        let mut shards = Vec::with_capacity(num_chunks * 2);
+        // Only the one logical chunk straddling the ring splice can split.
+        let extra = front_len != 0 && back_len != 0 && front_len % chunk_len != 0;
+        let descriptor_count = num_chunks + usize::from(extra);
+        let mut shards = Vec::with_capacity(descriptor_count);
 
         for index in 0..num_chunks {
             let (start, end) = partition_range(total_len, chunk_len, index);
@@ -61,6 +64,7 @@ impl DequeShardPlan {
             }
         }
 
+        debug_assert_eq!(shards.len(), descriptor_count);
         Self { shards }
     }
 
@@ -276,5 +280,48 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
     {
         let (s1, s2) = self.cells.as_mut_slices();
         DequeShardPlan::from_lengths(s1.len(), s2.len(), plan).map_mut(s1, s2, f)
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::{DequeSegment, DequeShard, DequeShardPlan, Vec};
+    use crate::sync::PartitionPlan;
+
+    #[test]
+    fn plan_covers_both_slices_in_logical_order_without_empty_shards() {
+        for front_len in 0..=8 {
+            for back_len in 0..=8 {
+                for chunk in [1, 2, 3, 5, 8, usize::MAX] {
+                    let total = front_len + back_len;
+                    let mut expected = Vec::new();
+                    for start in (0..total).step_by(chunk) {
+                        let end = start + chunk.min(total - start);
+                        // Intersect the logical chunk with the two physical slices.
+                        for (segment, base, limit) in [
+                            (DequeSegment::Front, 0, front_len),
+                            (DequeSegment::Back, front_len, total),
+                        ] {
+                            let left = start.max(base);
+                            let right = end.min(limit);
+                            if left < right {
+                                expected.push(DequeShard {
+                                    start: left,
+                                    segment,
+                                    offset: left - base,
+                                    len: right - left,
+                                });
+                            }
+                        }
+                    }
+                    let plan = DequeShardPlan::from_lengths(
+                        front_len,
+                        back_len,
+                        PartitionPlan::chunk_size(chunk),
+                    );
+                    assert_eq!(plan.shards, expected);
+                }
+            }
+        }
     }
 }

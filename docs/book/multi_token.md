@@ -153,3 +153,11 @@ a live `&mut` token statically excludes writers. The `thread_cached` module and
 With two placement axes — split within a brand, move a brand across threads —
 the [next chapter](melinoe_cell.md) turns to the access surfaces those tokens
 unlock.
+
+## Partitioning a branded deque
+
+For `BrandedVecDeque`, start offsets are logical queue indices, not physical
+storage offsets. If a planned chunk crosses the ring-buffer wrap, the
+callback sees two contiguous subshards, each with its own logical start.
+Use the start and slice length rather than assuming one callback per planned
+chunk. The planner reserves only the descriptors it needs for these slices.
