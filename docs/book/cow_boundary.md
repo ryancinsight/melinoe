@@ -91,8 +91,8 @@ nothing at run time.
 
 When the escape decision is data-dependent — a consumer that clones only when
 the slab is small, or when a cache is cold — [`RetainDecision`] covers the
-choice with two variants, [`Borrow`](RetainDecision::Borrow) and
-[`Retain`](RetainDecision::Retain). Use the ZST policies instead whenever the
+choice with two variants, [`Borrow`](https://docs.rs/melinoe/latest/melinoe/enum.RetainDecision.html#variant.Borrow) and
+[`Retain`](https://docs.rs/melinoe/latest/melinoe/enum.RetainDecision.html#variant.Retain). Use the ZST policies instead whenever the
 decision is static, so the runtime branch disappears.
 
 ## Segmented collections

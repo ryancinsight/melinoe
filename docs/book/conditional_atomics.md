@@ -1,11 +1,11 @@
 # 5. Conditional Atomics
 
-[`BrandedAtomic<'brand, A>`] wraps any standard-library atomic `A` (e.g.
+`BrandedAtomic<'brand, A>` wraps any standard-library atomic `A` (e.g.
 `AtomicU64`) and selects its **access cost** through the capability presented:
 
-- under a [`WritePermit`] — a proven-exclusive phase — access is **plain**:
+- under a `WritePermit` — a proven-exclusive phase — access is **plain**:
   a bare non-atomic load or store with no `lock` prefix and no memory fence;
-- under a [`ReadPermit`] — a shared phase — access is the **true atomic
+- under a `ReadPermit` — a shared phase — access is the **true atomic
   operation**: `fetch_add`, `compare_exchange`, and friends.
 
 The capability selects the cost, so you pay for synchronization only while
@@ -69,7 +69,7 @@ use melinoe::{AcqRel, SeqCst};
 // `Relaxed`: everything Relaxed
 ```
 
-The policies implement the sealed [`AtomicOrder`] trait via associated
+The policies implement the sealed `AtomicOrder` trait via associated
 constants, so monomorphization substitutes the ordering at compile time: the
 `Borrowed`-style policy selects the constant, the inactive branches erase, and
 the call site has no runtime ordering argument at all. The trait is sealed so
@@ -80,7 +80,7 @@ difference.
 
 ## Branded → raw interop
 
-[`as_atomic(snap)`](BrandedAtomic::as_atomic) returns a plain `&A` gated by the
+[`as_atomic(snap)`](https://docs.rs/melinoe/latest/melinoe/struct.BrandedAtomic.html#method.as_atomic) returns a plain `&A` gated by the
 read permit, so existing non-branded APIs that accept `&AtomicU64` can be
 called **without `unsafe`** — the cost is identical to calling the atomic
 directly. `from_mut` goes the other way: reborrow an atomic the caller already

@@ -39,7 +39,7 @@ any phantom-type scheme — `&mut T` is exclusive by definition. Concurrent
 partitions** of a branded region, which is exactly what per-thread allocator
 slabs need.
 
-[`WriterShard`] is the unit of that partition: a move-only, `Send` capability
+`WriterShard` is the unit of that partition: a move-only, `Send` capability
 over a disjoint `&mut [MelinoeCell<'brand, T>]` sub-slice. Construct one over a
 whole region, then subdivide:
 
@@ -63,7 +63,7 @@ brand_scope(|token| {
 });
 ```
 
-Disjointness is guaranteed by [`slice::split_at_mut`]; each shard covers a
+Disjointness is guaranteed by `slice::split_at_mut`; each shard covers a
 non-overlapping slice of the cell array, so two shards can never reach the same
 cell. Shards are `#[repr(transparent)]` over the underlying `&mut` slice — the
 capability is just the reference, with no extra footprint — and a shard is
@@ -75,9 +75,9 @@ would require a `&mut` borrow that `split_at_mut` already proved disjoint.
 
 ### Chunked and indexed subdivision
 
-For distributing across a thread pool, [`WriterShard::chunks`] yields an
+For distributing across a thread pool, `WriterShard::chunks` yields an
 exact-size iterator of disjoint shards of at most `chunk_size` cells each
-(`ShardChunks`). The random-access counterpart, [`WriterShard::par_chunks`]
+(`ShardChunks`). The random-access counterpart, `WriterShard::par_chunks`
 (`ParChunks`), exposes `len` and indexed chunk access so a work-stealing pool
 can request partition `c` on demand without threading `&mut` state through a
 sequence.
@@ -88,7 +88,7 @@ lengths without allocating element storage.
 
 ## partition_for_each_with: lock-free parallel writes
 
-With the `std` feature, [`partition_for_each_with`] drives scoped, disjoint
+With the `std` feature, `partition_for_each_with` drives scoped, disjoint
 multithreaded writes with **no runtime lock**. The callback receives the
 shard's starting index and its own `WriterShard`:
 
@@ -114,7 +114,7 @@ brand_scope(|token| {
 });
 ```
 
-[`PartitionPlan`] controls only how the region is tiled into non-empty shards.
+`PartitionPlan` controls only how the region is tiled into non-empty shards.
 The three constructors:
 
 - `PartitionPlan::parts(n)` — split into at most `n` shards;
@@ -132,7 +132,7 @@ and `partition_read_map` fan shared reads out across workers.
 ## SyncRegionToken: move a whole brand across a thread boundary
 
 When an entire region crosses a thread boundary — a spawned task that takes over
-a slab — [`SyncRegionToken`] carries the write capability with it:
+a slab — `SyncRegionToken` carries the write capability with it:
 
 ```rust
 extern crate melinoe;
