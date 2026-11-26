@@ -6,6 +6,14 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.1] — 2026-11-26
+
+### Changed
+
+- [patch] Reserve one descriptor per logical deque partition, plus one only
+  when a partition crosses the physical ring boundary. The partition ranges
+  and callback order do not change.
+
 ### Fixed
 
 - [patch] Clamp indexed, shared-read and `BrandedVecDeque` partition bounds
