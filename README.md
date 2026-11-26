@@ -1,5 +1,7 @@
 # melinoe
 
+[Read the user manual](https://ryancinsight.github.io/melinoe/) for concepts and examples.
+
 **Branded, multi-token phantom capabilities for compile-time data-access and thread-synchronization proofs.**
 
 `melinoe` is a `#![no_std]` foundation crate that encodes *who may touch what,

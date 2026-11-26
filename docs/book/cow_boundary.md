@@ -16,7 +16,9 @@ Given a permit, a branded slab can be handed out in two shapes:
 - **Borrowed** — `Cow::Borrowed(&[T])`. A zero-allocation, zero-copy view of
   the cells through the shared token. It dies when the permit borrow ends.
 - **Owned** — `Cow::Owned(Vec<T>)`. A clone of the contents that can escape
-  the brand scope, stored in un-branded owned memory.
+  the brand scope as a plain vector. Use `into_owned()` before returning:
+  the `Cow` type is tied to the permit, but the already-owned `Vec` moves out
+  without another clone.
 
 The API gives both shapes, plus a runtime decision when the answer depends on
 the data:
@@ -36,7 +38,7 @@ use melinoe::{
     Retained,
 };
 
-brand_scope(|mut token| {
+let escaped: Vec<u32> = brand_scope(|mut token| {
     let cells: [MelinoeCell<'_, u32>; 4] = core::array::from_fn(|_| MelinoeCell::new(0));
     cells.borrow_slice_mut(&mut token).copy_from_slice(&[1, 2, 3, 4]);
 
@@ -63,10 +65,10 @@ brand_scope(|mut token| {
     let chosen = cells.borrow_cow_if(&token, RetainDecision::Borrow);
     assert_eq!(chosen.first(), Some(&1));
 
-    // The owned Cow moves out of the brand scope into plain memory.
-    let escaped: Vec<u32> = owned.into_owned();
-    assert_eq!(escaped, vec![1, 2, 3, 4]);
+    // Move the already-owned Vec out of the Cow before leaving the scope.
+    owned.into_owned()
 });
+assert_eq!(escaped, vec![1, 2, 3, 4]);
 ```
 
 ## Compile-time policy: sealed ZSTs

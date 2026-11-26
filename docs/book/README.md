@@ -26,3 +26,8 @@ with **zero runtime cost** — no flags, no atomics, no locks.
 6. Guarded and reentrant cells for ambient exclusive state.
 7. `CellCowExt` and the retain-decision policy.
 8. Where melinoe fits in the Atlas stack.
+
+## Start here
+
+1. Read [The Brand Lifetime](brand_lifetime.md) for the core concepts.
+2. Follow [Branded Cells](examples/branded_cell.md) for a worked Rust example.

@@ -26,6 +26,7 @@ use melinoe::{brand_scope, BrandedAtomic, Relaxed};
 brand_scope(|mut token| {
     let counter: BrandedAtomic<'_, AtomicU64> = BrandedAtomic::new(0);
     counter.store_exclusive(10, &mut token); // plain store: movq, no lock prefix
+    assert_eq!(counter.load_exclusive(&mut token), 10);
     let snap = token.share();
     assert_eq!(counter.fetch_add_with(5, snap, Relaxed), 10); // real lock xaddq
     assert_eq!(counter.load_with(snap, Relaxed), 15);
@@ -35,7 +36,7 @@ brand_scope(|mut token| {
 ## The exclusive phase (plain)
 
 - `store_exclusive(value, &mut token)` — plain store under a `WritePermit`.
-- `load_exclusive(&token)` — plain load under a `WritePermit`.
+- `load_exclusive(&mut token)` — plain load under a `WritePermit`.
 - `with_exclusive(permit, f)` — run `f` with a plain `&mut A::Value` for any
   bulk operation.
 - `get_mut()` / `into_inner()` — plain access from unique ownership, no permit.
