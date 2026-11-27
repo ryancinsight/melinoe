@@ -161,3 +161,8 @@ storage offsets. If a planned chunk crosses the ring-buffer wrap, the
 callback sees two contiguous subshards, each with its own logical start.
 Use the start and slice length rather than assuming one callback per planned
 chunk. The planner reserves only the descriptors it needs for these slices.
+
+Finish using both slices from `as_slices` before starting
+`partition_for_each_mut_with`. If you need to inspect the modified queue,
+call `as_slices` again after partitioning. Using either old slice after the
+mutation would keep the shared borrow live and the compiler will reject it.

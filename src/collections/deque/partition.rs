@@ -257,6 +257,46 @@ impl<'brand, T> BrandedVecDeque<'brand, T> {
     /// The shard plan is derived once from the queue's total logical length.
     /// When a planned logical shard crosses the ring-buffer wrap, it is exposed
     /// as two physical subshards with stable logical start offsets.
+    ///
+    /// A borrowed split-slice view must have its last use before starting a
+    /// mutable partition:
+    ///
+    /// ```
+    /// use melinoe::{BrandedVecDeque, brand_scope};
+    /// use melinoe::sync::PartitionPlan;
+    ///
+    /// brand_scope(|token| {
+    ///     let mut values: BrandedVecDeque<'_, i32> = [1, 2, 3, 4].into_iter().collect();
+    ///     let (first, second) = values.as_slices(&token);
+    ///     assert!(first.iter().chain(second).copied().eq([1, 2, 3, 4]));
+    ///     values.partition_for_each_mut_with(PartitionPlan::chunk_size(2), |_, shard| {
+    ///         for value in shard {
+    ///             *value *= 2;
+    ///         }
+    ///     });
+    ///     let (first, second) = values.as_slices(&token);
+    ///     assert!(first.iter().chain(second).copied().eq([2, 4, 6, 8]));
+    /// });
+    /// ```
+    ///
+    /// Using either of the original slices after the call would keep the
+    /// shared borrow live and exclude the mutable partition:
+    ///
+    /// ```compile_fail
+    /// use melinoe::{BrandedVecDeque, brand_scope};
+    /// use melinoe::sync::PartitionPlan;
+    ///
+    /// brand_scope(|token| {
+    ///     let mut values: BrandedVecDeque<'_, i32> = [1, 2, 3, 4].into_iter().collect();
+    ///     let (first, second) = values.as_slices(&token);
+    ///     values.partition_for_each_mut_with(PartitionPlan::chunk_size(2), |_, shard| {
+    ///         for value in shard {
+    ///             *value *= 2;
+    ///         }
+    ///     });
+    ///     assert!(first.iter().chain(second).copied().eq([1, 2, 3, 4]));
+    /// });
+    /// ```
     #[cfg(feature = "std")]
     #[inline]
     pub fn partition_for_each_mut_with<F>(&mut self, plan: crate::sync::PartitionPlan, f: F)
