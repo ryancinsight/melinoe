@@ -6,6 +6,12 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- [patch] Restore no-std builds on targets with 32-bit but no 64-bit
+  atomics. The 64-bit branded atomic implementations remain available on
+  targets that support them.
+
 ## [0.10.1] — 2026-11-26
 
 ### Changed
