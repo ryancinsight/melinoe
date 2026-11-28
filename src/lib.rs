@@ -54,10 +54,10 @@
 //!   [`ReadPermit`] (shared phase). The capability selects the cost, so you pay
 //!   for synchronization only while sharing. [`Relaxed`], [`AcqRel`], and
 //!   [`SeqCst`] are ZST ordering policies for monomorphized atomic call sites.
-//! * [`CellCowExt`] — conditional `Cow` at the ownership boundary: [`Borrowed`]
-//!   returns a zero-copy borrowed slice, [`Retained`] clones exactly once, and
-//!   [`RetainDecision`] covers data-dependent retain decisions through the same
-//!   sealed policy bodies.
+//! * With `alloc`, `CellCowExt` makes conditional `Cow` explicit: `Borrowed`
+//!   returns a zero-copy borrowed slice, `Retained` clones exactly once, and
+//!   `RetainDecision` covers data-dependent decisions through the same sealed
+//!   policy bodies.
 //!
 //! ## Quick start
 //!
@@ -97,9 +97,9 @@
 //! });
 //! ```
 //!
-//! At an ownership boundary, [`CellCowExt`] makes the retain decision explicit.
-//! A ZST policy gives compile-time branch elimination when the decision is
-//! static:
+//! With `alloc`, `CellCowExt` makes the retain decision at the ownership
+//! boundary explicit. A ZST policy gives compile-time branch elimination
+//! when the decision is static:
 //!
 //! ```
 //! #[cfg(feature = "alloc")]
@@ -132,7 +132,7 @@
 //! });
 //! ```
 //!
-//! With `std`, [`sync::PartitionPlan`] drives scoped, disjoint multithreaded
+//! With `std`, `sync::PartitionPlan` drives scoped, disjoint multithreaded
 //! writes by fixed part count, current hardware parallelism, or fixed chunk
 //! size. Each worker receives one [`WriterShard`] and no runtime lock protects
 //! the write path:
@@ -189,14 +189,33 @@
 //!
 //! ## Cargo features
 //!
-//! * `std` *(default)* — superset of `alloc`; enables [`sync::scope_exclusive`]
-//!   and other [`std::thread::scope`]-based demonstrations.
+//! * `std` *(default)* — superset of `alloc`; enables `sync::scope_exclusive`
+//!   and other `std::thread::scope`-based demonstrations.
 //! * `alloc` — links the `alloc` crate for heap-payload examples/tests.
 //! * `nightly` — enables `doc_cfg` for precise feature-gated docs (requires a
 //!   nightly toolchain); reserved for future `generic_const_exprs` capability
 //!   sets.
 //!
-//! The crate is `#![no_std]` by default and uses no global allocator of its own.
+//! Melinoe enables the `std` Cargo feature by default. For a target without
+//! `std`, such as `thumbv7em-none-eabi`, disable default features in the
+//! consumer's `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! melinoe = { version = "0.10.2", default-features = false }
+//! ```
+//!
+//! For branded heap collections without `std`, use this declaration instead:
+//!
+//! ```toml
+//! [dependencies]
+//! melinoe = { version = "0.10.2", default-features = false, features = ["alloc"] }
+//! ```
+//!
+//! Melinoe does not provide a global allocator. A final binary that uses heap
+//! collections must supply one. If another dependency might be enabling `std`,
+//! inspect the features Cargo resolved with
+//! `cargo tree --target thumbv7em-none-eabi -e features -i melinoe`.
 #![no_std]
 #![deny(missing_docs)]
 #![cfg_attr(doc_cfg_active, feature(doc_cfg))]

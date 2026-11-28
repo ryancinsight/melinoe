@@ -31,16 +31,26 @@
 ///
 /// # Consumer requirements
 ///
-/// On nightly toolchains the expansion uses `#[thread_local] Cell<Option<T>>`
-/// statics, so the consuming crate must carry:
+/// The expansion evaluates `nightly_tls_active` in the consuming crate,
+/// not in Melinoe. Declare that cfg name in the consumer to keep
+/// `unexpected_cfgs` lint checks active. For example, in the consumer's
+/// `Cargo.toml`:
 ///
-/// - a build script emitting `cargo:rustc-check-cfg=cfg(nightly_tls_active)`
-///   and `cargo:rustc-cfg=nightly_tls_active` when the compiler is nightly
-///   (themis and mnemosyne-local already do), and
-/// - `#![cfg_attr(nightly_tls_active, feature(thread_local))]` at crate root.
+/// ```toml
+/// [lints.rust]
+/// unexpected_cfgs = { level = "deny", check-cfg = ['cfg(nightly_tls_active)'] }
+/// ```
 ///
-/// On stable the expansion falls back to `std::thread_local!` with the same
-/// `Cell<Option<T>>` payload, so a stable consumer must link `std`.
+/// This declaration does not enable the cfg. When it is unset, including on
+/// stable, the expansion uses `std::thread_local!` and the consumer must link
+/// `std`.
+///
+/// To opt into the `#[thread_local]` fast path on nightly, have the consumer
+/// build script emit `cargo:rustc-cfg=nightly_tls_active` only on nightly and
+/// add `#![cfg_attr(nightly_tls_active, feature(thread_local))]` at the
+/// consumer crate root. A build script may declare the cfg name by emitting
+/// `cargo:rustc-check-cfg=cfg(nightly_tls_active)` on all toolchains instead
+/// of configuring the manifest lint table.
 ///
 /// # Example
 ///

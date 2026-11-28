@@ -22,8 +22,8 @@
 //!   [`SharedReadToken`](crate::token::SharedReadToken)) across threads for concurrent
 //!   reads; the absence of a live `&mut` token statically excludes writers.
 //!
-//! When the `std` feature is enabled, [`scope_exclusive`] demonstrates the
-//! handoff pattern over [`std::thread::scope`], and [`PartitionPlan`] controls
+//! When the `std` feature is enabled, `scope_exclusive` demonstrates the
+//! handoff pattern over `std::thread::scope`, and `PartitionPlan` controls
 //! lock-free disjoint write scheduling by fixed part count, reported hardware
 //! parallelism, or fixed chunk size.
 //!

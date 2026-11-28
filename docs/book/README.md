@@ -29,5 +29,9 @@ with **zero runtime cost** — no flags, no atomics, no locks.
 
 ## Start here
 
+Melinoe enables the `std` Cargo feature by default. For a bare-metal consumer,
+see the [Cargo feature declarations](https://github.com/ryancinsight/melinoe#cargo-features)
+for core-only use or for opting into heap collections with `alloc`.
+
 1. Read [The Brand Lifetime](brand_lifetime.md) for the core concepts.
 2. Follow [Branded Cells](examples/branded_cell.md) for a worked Rust example.
