@@ -10,8 +10,7 @@ use crate::{brand_scope, ExclusiveToken};
 /// callback's return value may escape, but the branded vector or token cannot.
 ///
 /// The generator itself runs sequentially because it constructs the owned
-/// collection. Use [`BrandedVec::partition_for_each_mut_with`] inside `f` when
-/// the generated region needs a parallel mutation phase.
+/// collection.
 ///
 /// # Examples
 ///
@@ -25,7 +24,7 @@ use crate::{brand_scope, ExclusiveToken};
 /// ```
 ///
 /// With `std`, the callback can instead call
-/// [`BrandedVec::partition_for_each_mut_with`] for a parallel mutation phase
+/// `BrandedVec::partition_for_each_mut_with` for a parallel mutation phase
 /// while the fresh brand remains scoped to the callback.
 #[inline]
 pub fn with_generated<T, R, G, F>(len: usize, mut generate: G, f: F) -> R

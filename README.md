@@ -411,7 +411,26 @@ instructions after monomorphization.
 | `alloc`   |    | Links the `alloc` crate for heap-payload examples/tests. |
 | `nightly` |    | Enables `doc_cfg` for precise feature-gated docs (requires a nightly toolchain); reserved for future `generic_const_exprs` capability sets. |
 
-The crate is `#![no_std]` by default and brings no global allocator of its own.
+Melinoe enables the `std` Cargo feature by default. For a target without
+`std`, such as `thumbv7em-none-eabi`, disable default features in the
+consumer's `Cargo.toml`:
+
+```toml
+[dependencies]
+melinoe = { version = "0.10.2", default-features = false }
+```
+
+For branded heap collections without `std`, use this declaration instead:
+
+```toml
+[dependencies]
+melinoe = { version = "0.10.2", default-features = false, features = ["alloc"] }
+```
+
+Melinoe does not provide a global allocator. A final binary that uses heap
+collections must supply one. If another dependency might be enabling `std`,
+inspect the features Cargo resolved with
+`cargo tree --target thumbv7em-none-eabi -e features -i melinoe`.
 
 [`sync::scope_exclusive`]: https://docs.rs/melinoe/latest/melinoe/sync/fn.scope_exclusive.html
 
