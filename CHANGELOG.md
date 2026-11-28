@@ -6,6 +6,8 @@ All notable changes to `melinoe` are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.2] — 2026-11-28
+
 ### Fixed
 
 - [patch] Restore no-std builds on targets with 32-bit but no 64-bit
